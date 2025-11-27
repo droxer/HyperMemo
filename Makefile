@@ -13,10 +13,10 @@ front-lint: ## Run Biome lint
 	pnpm run lint
 
 backend-venv: ## Create Python virtualenv for Firebase Functions
-	cd functions && python3 -m venv .venv
+	cd functions && uv venv --python 3.11
 
 backend-install: backend-venv ## Install backend Python dependencies
-	cd functions && . .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
+	cd functions && uv pip install --upgrade pip && uv pip install -r requirements.txt
 
 backend-serve: ## Run Firebase emulator for functions
 	cd functions && . .venv/bin/activate && firebase emulators:start --only functions
