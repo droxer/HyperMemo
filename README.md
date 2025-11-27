@@ -28,6 +28,38 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 VITE_API_BASE_URL=https://your-api-gateway.example.com
 ```
-`VITE_API_BASE_URL` should point to the API layer that talks to Bedrock for embeddings/summaries, writes embeddings to Aurora pgvector, and exports notes to Google Docs.
+`VITE_API_BASE_URL` should point to the Firebase HTTPS Functions base URL (2nd gen, Python runtime) that calls Vertex AI for summaries/embeddings and orchestrates Firestore + Google Docs operations.
 
-Feel free to extend the Service Worker, add offline caching, or plug in additional API endpoints (e.g., analytics, spaced repetition) as the backend grows.
+## Firebase Functions (Python)
+Backend code lives in `functions/` and targets Python 3.11 with the Firebase Functions SDK:
+
+```bash
+cd functions
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+firebase login
+firebase functions:config:set vertex.location="us-central1"  # optional overrides
+firebase deploy --only functions
+```
+
+Endpoints exposed:
+
+- `bookmarks`: GET/POST upserts with Vertex summaries/tags + embeddings saved to Firestore.
+- `summaries` / `summary_tags`: lightweight Gemini helpers for the popup.
+- `rag_query`: embeds the user question, compares against stored vectors, and returns `{ answer, matches }`.
+- `export_note`: placeholder for Google Docs export (wire OAuth + Docs API before production).
+
+## Backend expectations
+- `/bookmarks` (GET/POST/PUT/DELETE) stores bookmark metadata and embeddings through Firebase Cloud Functions into your vector store.
+- `/summaries` and `/summaries/tags` call Vertex AI (directly or via Firebase Genkit/Firebase Extensions) to summarize content and propose tags.
+- `/rag/query` embeds the question with Vertex AI, performs similarity search (BigQuery vector search, AlloyDB pgvector, or Vertex AI Search), and responds with `{ answer, matches }`.
+- `/notes/export` takes `{ note }`, verifies the Firebase ID token, exchanges it for Drive/Docs credentials (using chrome.identity or Google Identity Toolkit), and returns `{ exportUrl, driveFileId }`.
+
+## Project layout
+- `src/pages/popup` – capture UI + styles.
+- `src/pages/dashboard` – chat workspace + note builder.
+- `src/services` – Firebase wiring, API client, bookmark/notes/RAG helpers.
+- `src/background` / `src/content` – Chrome runtime scripts for page capture.
+- `pages/` – HTML entrypoints consumed by Vite/CRXJS.
+
+Feel free to extend the Service Worker, add offline caching, or plug in additional API endpoints (analytics, spaced repetition, etc.) as the backend grows.
