@@ -17,8 +17,28 @@
 - Run `pnpm run lint` before committing; Biome enforces spacing, quote style, and basic best practices. Keep files ASCII unless a dependency already uses Unicode.
 
 ## Testing Guidelines
-- Automated tests are not yet implemented. When adding tests, colocate them next to source files (e.g., `bookmarkService.test.ts`) and wire a `pnpm run test` script.  
-- Strive for coverage of bookmarking workflows, runtime messaging, and Firebase/auth helpers.
+
+### Manual Verification
+Currently, the primary testing method is manual verification using the unpacked extension.
+
+1. **Dev Server**: Run `pnpm run dev` to watch and compile to `dist/`.
+2. **Chrome Setup**:
+   - Navigate to `chrome://extensions/`.
+   - Enable **Developer mode**.
+   - Click **Load unpacked** and select the project's `dist/` folder.
+3. **Key Scenarios**:
+   - **Popup**: Ensure the extension opens and can capture the active tab.
+   - **Dashboard**: Verify the RAG chat responds and notes can be created/exported.
+   - **Services**: Check the console for any API or Firebase errors.
+
+### Static Analysis
+- **Linting**: `pnpm run lint` (Biome) checks for formatting and code quality.
+- **Type Checking**: `pnpm run build` performs a full TypeScript check.
+
+### Automated Testing (Future)
+- **Framework**: Vitest is the planned test runner.
+- **Structure**: Tests should be co-located with source files (e.g., `src/services/bookmarkService.test.ts`).
+- **Scope**: Prioritize unit tests for `src/services` and integration tests for the main flows.
 
 ## Commit & Pull Request Guidelines
 - Use conventional, action-oriented commit messages (e.g., `feat: add popup summary autosuggest`).  
