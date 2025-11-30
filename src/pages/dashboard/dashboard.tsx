@@ -65,8 +65,8 @@ export default function DashboardApp() {
       } else if (error instanceof Error) {
         if (error.message.includes('fetch') || error.message.includes('network')) {
           setChatError('Network error. Please check your connection and try again.');
-        } else if (error.message.includes('VITE_API_BASE_URL')) {
-          setChatError('API configuration error. Please check your environment settings.');
+        } else if (error.message.includes('VITE_SUPABASE')) {
+          setChatError('Supabase configuration error. Please check your environment settings.');
         } else {
           setChatError(`Error: ${error.message}`);
         }

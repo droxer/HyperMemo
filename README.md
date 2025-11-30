@@ -15,49 +15,57 @@ pnpm run dev        # Vite dev server + CRX reloader (load dist/ as unpacked ext
 pnpm run build      # type-check + production build into dist/
 pnpm run lint       # Biome formatting + lint rules
 ```
-If pnpm warns about ignored install scripts (e.g., `@firebase/util`, `esbuild`), run `pnpm approve-builds` once to whitelist them.
+If pnpm warns about ignored install scripts, run `pnpm approve-builds` once to whitelist them.
 
 ## Environment
 Create `.env` (or `.env.local`) with:
 ```
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_API_BASE_URL=https://your-api-gateway.example.com
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_FUNCTION_URL=https://YOUR_PROJECT_REF.functions.supabase.co # optional override
+VITE_SUPABASE_ANON_KEY=...
 VITE_GOOGLE_OAUTH_CLIENT_ID=...
-VITE_AUTO_ANON_LOGIN=true
+VITE_AUTO_ANON_LOGIN=false
 VITE_AUTH_WAIT_TIMEOUT_MS=5000
 ```
 
-`VITE_API_BASE_URL` should point to the Firebase HTTPS Functions base URL (2nd gen, Node 20 runtime) that calls Vertex AI for summaries/embeddings and orchestrates Firestore + Google Docs operations.
+`VITE_SUPABASE_FUNCTION_URL` defaults to `https://<project-ref>.functions.supabase.co`; set it explicitly if you use a custom domain.
 
-## Firebase Functions (TypeScript)
-Backend code lives in `functions/` and is written in TypeScript targeting Node 20. Use the Makefile helpers (`make backend-install`, `make backend-deploy`) or run the commands manually:
+Set `VITE_AUTO_ANON_LOGIN=true` only if you have [Supabase anonymous sign-ins](https://supabase.com/docs/guides/auth/auth-anonymous) enabled in your project; otherwise leave it `false` to avoid unnecessary `/auth/v1/signup` attempts.
+
+## Supabase Edge Functions
+Backend code now lives under `supabase/`:
+
+- `supabase/migrations` defines the bookmark table (Postgres + RLS + auto `updated_at` triggers).
+- `supabase/functions/**` contains Deno-based Edge Functions for bookmarks, summaries, tags, and RAG chat.
+
+Use the Supabase CLI (or GitHub Action) to push schema changes and deploy functions:
 
 ```bash
-cd functions
-firebase login
-pnpm install
-pnpm run build
-firebase functions:config:set vertex.location="asia-northeast1"  # optional overrides
-firebase deploy --only functions
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+supabase db push                           # applies SQL migrations
+supabase functions deploy bookmarks summaries summary-tags rag-query \
+  --project-ref YOUR_PROJECT_REF
 ```
+
+Environment variables consumed by the functions (set via `supabase functions secrets set ...`):
+
+- `OPENAI_API_KEY` (required) plus optional overrides `OPENAI_MODEL`, `OPENAI_EMBEDDING_MODEL`, `OPENAI_BASE_URL`.
+- `AI_PROVIDER=openai` (currently the only supported provider).
+- `REQUIRE_AUTH=true|false` and `ANON_UID` for local/dev scenarios.
 
 Endpoints exposed:
 
-- `bookmarks`: GET/POST upserts with Vertex summaries/tags + embeddings saved to Firestore.
-- `summaries` / `summary_tags`: lightweight Gemini helpers for the popup.
-- `rag_query`: embeds the user question, compares against stored vectors, and returns `{ answer, matches }`.
-- `export_note` (temporarily disabled): placeholder for Google Docs export (wire OAuth + Docs API before production).
+- `bookmarks`: GET/POST/PUT/DELETE persists bookmark metadata + embeddings to Postgres.
+- `summaries` / `summary-tags`: lightweight OpenAI helpers for the popup.
+- `rag-query`: embeds the user question, scores saved bookmarks in-memory, and responds with `{ answer, matches }`.
+- `notes/export`: (TODO) placeholder for Google Docs export—wire your own Drive workflow when ready.
 
 ## Backend expectations
-- `/bookmarks` (GET/POST/PUT/DELETE) stores bookmark metadata and embeddings through Firebase Cloud Functions into your vector store.
-- `/summaries` and `/summaries/tags` call Vertex AI (directly or via Firebase Genkit/Firebase Extensions) to summarize content and propose tags.
-- `/rag/query` embeds the question with Vertex AI, performs similarity search (BigQuery vector search, AlloyDB pgvector, or Vertex AI Search), and responds with `{ answer, matches }`.
-- `/notes/export` takes `{ note }`, verifies the Firebase ID token, exchanges it for Drive/Docs credentials (using chrome.identity or Google Identity Toolkit), and returns `{ exportUrl, driveFileId }`.
+- `/bookmarks` (GET/POST/PUT/DELETE) stores bookmark metadata and embeddings through Supabase Edge Functions into Postgres.
+- `/summaries` and `/summaries/tags` call OpenAI (configurable) to summarize content and propose tags.
+- `/rag_query` embeds the question with OpenAI, performs cosine similarity scoring against stored vectors, and responds with `{ answer, matches }`.
+- `/notes/export` takes `{ note }`, is currently unimplemented, and should be handled by a future Supabase function that exchanges the Supabase session for Google APIs.
 
 ## Project layout
 - `src/pages/popup` – capture UI + styles.

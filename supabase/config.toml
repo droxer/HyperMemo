@@ -1,0 +1,11 @@
+project_id = "your-project-ref"
+
+[functions]
+  [functions.bookmarks]
+    verify_jwt = false
+  [functions.summaries]
+    verify_jwt = false
+  [functions.rag_query]
+    verify_jwt = false
+  [functions.notes]
+    verify_jwt = false

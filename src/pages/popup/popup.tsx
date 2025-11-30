@@ -41,15 +41,35 @@ export default function PopupApp() {
   }, []);
 
   const recentBookmarks = useMemo<Bookmark[]>(() => bookmarks.slice(0, 5), [bookmarks]);
+  const userEmail = user?.email ?? '';
+  const userProfile = useMemo(() => {
+    if (!user) {
+      return { name: '', avatarUrl: null as string | null };
+    }
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const nameCandidates = [
+      metadata.name,
+      metadata.full_name,
+      metadata.display_name,
+      metadata.user_name
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    const avatarCandidates = [metadata.avatar_url, metadata.picture].filter(
+      (value): value is string => typeof value === 'string' && value.trim().length > 0
+    );
+    return {
+      name: nameCandidates[0] ?? '',
+      avatarUrl: avatarCandidates[0] ?? null
+    };
+  }, [user]);
   const userInitials = useMemo(() => {
     if (!user) return '?';
-    const source = user.displayName || user.email || '?';
+    const source = userProfile.name || userEmail || '?';
     const initials = source
       .split(/\s+/)
-      .map((chunk) => chunk[0] ?? '')
+      .map((chunk: string) => (chunk[0] ?? '').toUpperCase())
       .join('');
-    return (initials || '?').slice(0, 2).toUpperCase();
-  }, [user]);
+    return (initials || '?').slice(0, 2);
+  }, [user, userProfile.name, userEmail]);
 
   const openWorkspace = () => {
     if (typeof chrome !== 'undefined' && chrome.runtime?.openOptionsPage) {
@@ -143,14 +163,14 @@ export default function PopupApp() {
             <span>Loading…</span>
           ) : user ? (
             <div className="popup__user">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt={user.displayName || user.email || 'Account'} />
+              {userProfile.avatarUrl ? (
+                <img src={userProfile.avatarUrl} alt={userProfile.name || userEmail || 'Account'} />
               ) : (
                 <span className="popup__avatar-fallback">{userInitials}</span>
               )}
               <div className="popup__user-meta">
-                <strong>{user.displayName || 'Signed in'}</strong>
-                {user.email && <small>{user.email}</small>}
+                <strong>{userProfile.name || 'Signed in'}</strong>
+                {userEmail && <small>{userEmail}</small>}
                 <button type="button" className="text" onClick={logout}>
                   Sign out
                 </button>

@@ -1,7 +1,8 @@
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { firebaseAuth } from '@/services/firebase';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/services/supabaseClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const SUPABASE_FUNCTION_URL = (import.meta.env.VITE_SUPABASE_FUNCTION_URL ?? '').trim();
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
 const WAIT_FOR_USER_TIMEOUT_MS = Number(import.meta.env.VITE_AUTH_WAIT_TIMEOUT_MS ?? 5000);
 
 class ApiError extends Error {
@@ -15,87 +16,83 @@ class ApiError extends Error {
   }
 }
 
-function ensureBaseUrl(): string {
-  if (!API_BASE_URL) {
-    throw new Error('VITE_API_BASE_URL is not configured.');
+function ensureFunctionBaseUrl(): string {
+  if (SUPABASE_FUNCTION_URL) {
+    return SUPABASE_FUNCTION_URL.replace(/\/$/, '');
   }
-  return API_BASE_URL.replace(/\/$/, '');
+  if (!SUPABASE_URL) {
+    throw new Error('VITE_SUPABASE_FUNCTION_URL or VITE_SUPABASE_URL must be configured.');
+  }
+  try {
+    const parsed = new URL(SUPABASE_URL);
+    const hostnameParts = parsed.hostname.split('.');
+    if (hostnameParts.length >= 3 && hostnameParts.at(-2) === 'supabase' && hostnameParts.at(-1) === 'co') {
+      const projectRef = hostnameParts[0];
+      return `${parsed.protocol}//${projectRef}.functions.supabase.co`;
+    }
+    if (SUPABASE_FUNCTION_URL) {
+      return SUPABASE_FUNCTION_URL.replace(/\/$/, '');
+    }
+    throw new Error('Unable to derive Supabase Functions URL from custom domain; set VITE_SUPABASE_FUNCTION_URL explicitly.');
+  } catch (error) {
+    throw new Error(`Invalid Supabase URL. Set VITE_SUPABASE_FUNCTION_URL explicitly. ${String(error)}`);
+  }
 }
 
-let authStatePromise: Promise<User | null> | null = null;
+let sessionWaitPromise: Promise<Session | null> | null = null;
 
-async function waitForUser(): Promise<User | null> {
-  const current = firebaseAuth.currentUser;
-  if (current) {
-    try {
-      await current.reload();
-    } catch {
-      // ignore reload failures; we'll fall back to current state
-    }
-    return firebaseAuth.currentUser;
+async function waitForSession(): Promise<Session | null> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    console.warn('Failed to read Supabase session', error);
   }
-  if (!authStatePromise) {
-    authStatePromise = new Promise<User | null>((resolve) => {
+  if (data.session) {
+    return data.session;
+  }
+  if (!sessionWaitPromise) {
+    sessionWaitPromise = new Promise<Session | null>((resolve) => {
       let resolved = false;
       let timeoutId: number | undefined;
-      const unsubscribe = onAuthStateChanged(
-        firebaseAuth,
-        (resolvedUser) => {
-          if (resolvedUser && !resolved) {
-            resolved = true;
-            if (timeoutId !== undefined) {
-              clearTimeout(timeoutId);
-            }
-            unsubscribe();
-            resolve(resolvedUser);
+      const {
+        data: { subscription }
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session && !resolved) {
+          resolved = true;
+          if (timeoutId !== undefined) {
+            clearTimeout(timeoutId);
           }
-        },
-        () => {
-          if (!resolved) {
-            resolved = true;
-            if (timeoutId !== undefined) {
-              clearTimeout(timeoutId);
-            }
-            unsubscribe();
-            resolve(null);
-          }
+          subscription.unsubscribe();
+          resolve(session);
         }
-      );
+      });
       timeoutId = window.setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          unsubscribe();
-          resolve(firebaseAuth.currentUser);
+          subscription.unsubscribe();
+          resolve(null);
         }
       }, WAIT_FOR_USER_TIMEOUT_MS);
     }).finally(() => {
-      authStatePromise = null;
+      sessionWaitPromise = null;
     });
   }
-  return authStatePromise;
+  return sessionWaitPromise;
 }
 
 async function authHeaders(): Promise<Headers> {
   const headers = new Headers({ 'Content-Type': 'application/json' });
-  const currentUser = await waitForUser();
-  if (currentUser) {
-    try {
-      const token = await currentUser.getIdToken();
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-      } else {
-        console.warn('getIdToken returned empty token');
-      }
-    } catch (error) {
-      console.error('Failed to get ID token:', error);
-      // Continue without auth header - backend will return 401 with proper error message
-    }
+  const session = await waitForSession();
+  const token = session?.access_token;
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    console.warn('Missing Supabase access token; request will be anonymous.');
   }
   return headers;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const baseUrl = ensureBaseUrl();
+  const baseUrl = ensureFunctionBaseUrl();
   const auth = await authHeaders();
   const requestHeaders = new Headers(init?.headers || {});
   auth.forEach((value, key) => requestHeaders.set(key, value));

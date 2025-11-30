@@ -7,14 +7,8 @@ import {
   useRef,
   useState
 } from 'react';
-import type { User } from 'firebase/auth';
-import { firebaseAuth, googleProvider } from '@/services/firebase';
-import {
-  onAuthStateChanged,
-  signInAnonymously,
-  signInWithPopup,
-  signOut
-} from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/services/supabaseClient';
 import { loginWithChromeIdentity } from '@/services/auth/chromeIdentity';
 
 export type AuthContextValue = {
@@ -43,23 +37,52 @@ function useProvideAuth(): AuthContextValue {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const attemptedAnonRef = useRef(false);
-  const autoAnonEnabled =
-    !import.meta.env.VITE_AUTO_ANON_LOGIN ||
-    !/^(false|0|no|off)$/i.test(import.meta.env.VITE_AUTO_ANON_LOGIN);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
-      setUser(nextUser);
-      setLoading(false);
-      if (!nextUser && autoAnonEnabled && !attemptedAnonRef.current) {
-        attemptedAnonRef.current = true;
-        void signInAnonymously(firebaseAuth).catch((error) => {
-          console.warn('Failed to sign in anonymously', error);
-        });
+    let mounted = true;
+    const autoAnonEnabled = Boolean(
+      import.meta.env.VITE_AUTO_ANON_LOGIN &&
+        /^(true|1|yes|on)$/i.test(import.meta.env.VITE_AUTO_ANON_LOGIN)
+    );
+    void supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!mounted) {
+          return;
+        }
+        if (error) {
+          console.warn('Failed to fetch Supabase session', error);
+        }
+        const nextUser = data.session?.user ?? null;
+        setUser(nextUser);
+        setLoading(false);
+        if (!nextUser && autoAnonEnabled && !attemptedAnonRef.current) {
+          attemptedAnonRef.current = true;
+          void supabase.auth.signInAnonymously().catch((anonError) => {
+            console.warn('Failed to sign in anonymously', anonError);
+          });
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          console.warn('Unexpected Supabase auth error', error);
+          setLoading(false);
+        }
+      });
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) {
+        return;
       }
+      setUser(session?.user ?? null);
+      setLoading(false);
     });
-    return () => unsubscribe();
-  }, [autoAnonEnabled]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const login = useCallback(async () => {
     try {
@@ -67,19 +90,30 @@ function useProvideAuth(): AuthContextValue {
         typeof chrome !== 'undefined' && !!chrome.identity?.launchWebAuthFlow;
       if (canUseChromeIdentity) {
         await loginWithChromeIdentity();
-      } else {
-        await signInWithPopup(firebaseAuth, googleProvider);
+        return;
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: { prompt: 'select_account' }
+        }
+      });
+      if (error) {
+        throw error;
       }
     } catch (error) {
-      console.warn('Firebase login failed', error);
+      console.warn('Supabase login failed', error);
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await signOut(firebaseAuth);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
     } catch (error) {
-      console.warn('Firebase logout failed', error);
+      console.warn('Supabase logout failed', error);
     }
   }, []);
 

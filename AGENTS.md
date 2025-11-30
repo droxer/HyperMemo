@@ -3,13 +3,13 @@
 ## Project Structure & Module Organization
 - `src/` holds TypeScript sources: popup/dashboard React UIs (`src/pages/**`), contexts (`src/contexts`), Chrome scripts (`src/background`, `src/content`), and domain services (`src/services`).  
 - Static HTML entry points live under `pages/`, while icons reside in `public/icons`.  
-- `functions/` contains the Python Firebase Functions backend (Vertex AI, Firestore, Docs export).  
+- `supabase/` contains the SQL schema and Edge Functions (bookmarks, summaries, tags, RAG).  
 - Build artifacts are emitted to `dist/` after running `pnpm run build`. Avoid hand-editing generated files.
 
 ## Build, Test, and Development Commands
 - Front-end: `pnpm install`, `pnpm run dev`, `pnpm run build`, `pnpm run lint`.  
-- Makefile shortcuts: `make install`, `make front-dev`, `make front-build`, `make front-lint`, `make backend-install`, `make backend-deploy`.  
-- Backend manual workflow: `cd functions && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (installs firebase-functions, firebase-admin, google-cloud-firestore>=2.19.0, etc.), then `firebase deploy --only functions`.
+- Makefile shortcuts: `make install`, `make front-dev`, `make front-build`, `make front-lint`, `make supabase-db`, `make supabase-functions`.  
+- Backend workflow: `supabase db push` applies migrations, and `supabase functions deploy bookmarks summaries summary-tags rag-query` publishes the Edge Functions (ensure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and OpenAI env vars are set).
 
 ## Coding Style & Naming Conventions
 - TypeScript/React code uses ES modules, React 18 function components, and absolute imports via the `@/` alias.  
@@ -29,7 +29,7 @@ Currently, the primary testing method is manual verification using the unpacked 
 3. **Key Scenarios**:
    - **Popup**: Ensure the extension opens and can capture the active tab.
    - **Dashboard**: Verify the RAG chat responds and notes can be created/exported.
-   - **Services**: Check the console for any API or Firebase errors.
+- **Services**: Check the console for any API or Supabase errors.
 
 ### Static Analysis
 - **Linting**: `pnpm run lint` (Biome) checks for formatting and code quality.
@@ -46,5 +46,5 @@ Currently, the primary testing method is manual verification using the unpacked 
 - Verify `pnpm run build` and `pnpm run lint` succeed before requesting review; attach any manual test notes (e.g., “loaded unpacked extension in Chrome 129”).
 
 ## Security & Configuration Tips
-- Store Firebase and Google API credentials in `.env` files (prefixed with `VITE_…`); never commit secrets.  
-- When implementing Drive exports or real RAG backends, route privileged calls through Firebase Functions or another server-side layer to keep tokens out of the extension bundle.
+- Store Supabase, OpenAI, and Google API credentials in `.env` files (prefixed with `VITE_…` for the client, regular env vars for functions); never commit secrets.  
+- When implementing Drive exports or real RAG backends, route privileged calls through Supabase Edge Functions or another server-side layer to keep tokens out of the extension bundle.

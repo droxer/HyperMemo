@@ -4,12 +4,7 @@ node_modules/
 # Build outputs
 dist/
 *.tsbuildinfo
-functions/node_modules/
-functions/lib/
-functions/.genkit/
-functions/__pycache__/
-functions/.venv/
-functions/venv/
+supabase/.temp/
 
 # Environment variables
 .env
