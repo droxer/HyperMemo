@@ -21,27 +21,40 @@ export function TagInput({ value, onChange, placeholder, id }: TagInputProps) {
         onChange(value.filter((item) => item !== tag));
     };
 
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter' || event.key === ',') {
+            event.preventDefault();
+            addTag(input);
+        } else if (event.key === 'Backspace' && !input && value.length > 0) {
+            event.preventDefault();
+            removeTag(value[value.length - 1]);
+        }
+    };
+
     return (
         <div className="tag-input">
             <div className="tag-input__chips">
                 {value.map((tag) => (
-                    <button key={tag} type="button" onClick={() => removeTag(tag)}>
-                        {tag} ×
-                    </button>
+                    <span key={tag} className="tag-chip">
+                        {tag}
+                        <button
+                            type="button"
+                            onClick={() => removeTag(tag)}
+                            className="tag-remove"
+                            title={`Remove ${tag}`}
+                        >
+                            ×
+                        </button>
+                    </span>
                 ))}
             </div>
             <input
                 id={id}
                 className="tag-input__field"
-                placeholder={placeholder ?? 'Add tag'}
+                placeholder={value.length === 0 ? (placeholder ?? 'Add tag') : ''}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ',') {
-                        event.preventDefault();
-                        addTag(input);
-                    }
-                }}
+                onKeyDown={handleKeyDown}
             />
             <button
                 type="button"

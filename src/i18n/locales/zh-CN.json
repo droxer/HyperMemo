@@ -15,7 +15,8 @@
         "chats": "聊天",
         "newChat": "新对话",
         "resetChat": "重置对话",
-        "deleteChat": "删除对话"
+        "deleteChat": "删除对话",
+        "allTags": "所有标签"
     },
     "tabs": {
         "overview": "概览",

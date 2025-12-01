@@ -6,6 +6,7 @@ import { useBookmarksContext } from '@/contexts/BookmarkContext';
 import { getBookmark } from '@/services/bookmarkService';
 import { generateSummary, extractSmartTags } from '@/services/mlService';
 import { TagInput } from '@/components/TagInput';
+import { ConfirmationModal } from '@/components/ConfirmationModal';
 import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
 import { draftAnswerFromBookmarks, type RagMatch } from '@/services/ragService';
 import { composeNoteFromBookmarks, exportNoteToGoogleDocs } from '@/services/notesService';
@@ -36,7 +37,9 @@ export default function DashboardApp() {
     const [note, setNote] = useState<NoteDocument | null>(null);
     const [exporting, setExporting] = useState(false);
     const [citations, setCitations] = useState<RagMatch[]>([]);
-    const [isRegenerating, setIsRegenerating] = useState(false);
+    const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
+    const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
     // Chat Tag State
     const [chatTags, setChatTags] = useState<string[]>([]);
@@ -44,6 +47,35 @@ export default function DashboardApp() {
     const [tagSearch, setTagSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+    // Modal State
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDangerous?: boolean;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDangerous: false
+    });
+
+    const openConfirm = (title: string, message: string, onConfirm: () => void, isDangerous = false) => {
+        setModalConfig({
+            isOpen: true,
+            title,
+            message,
+            onConfirm,
+            isDangerous
+        });
+    };
+
+    const closeConfirm = () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     const activeBookmark = useMemo(
         () => bookmarks.find((b) => b.id === activeBookmarkId),
@@ -54,6 +86,11 @@ export default function DashboardApp() {
         () => bookmarks.filter((bookmark) => selectedIds.includes(bookmark.id)),
         [bookmarks, selectedIds]
     );
+
+    const filteredBookmarks = useMemo(() => {
+        if (!selectedTag) return bookmarks;
+        return bookmarks.filter(b => b.tags?.includes(selectedTag));
+    }, [bookmarks, selectedTag]);
 
     const activeSession = useMemo(
         () => sessions.find(s => s.id === activeSessionId) || null,
@@ -101,16 +138,22 @@ export default function DashboardApp() {
         loadSessions();
     }, []);
 
-    // Save sessions whenever they change
+    // Save sessions whenever they change (debounced)
     useEffect(() => {
         if (sessions.length > 0) {
-            chromeStorage.set('chat_sessions', sessions);
+            const timeoutId = setTimeout(() => {
+                chromeStorage.set('chat_sessions', sessions);
+            }, 500); // Debounce by 500ms to reduce storage writes
+            return () => clearTimeout(timeoutId);
         }
     }, [sessions]);
 
-    // Save active session ID
+    // Save active session ID (debounced)
     useEffect(() => {
-        chromeStorage.set('active_session_id', activeSessionId);
+        const timeoutId = setTimeout(() => {
+            chromeStorage.set('active_session_id', activeSessionId);
+        }, 300); // Shorter debounce for session switching
+        return () => clearTimeout(timeoutId);
     }, [activeSessionId]);
 
     const createNewSession = (currentSessions: ChatSession[] = sessions) => {
@@ -127,21 +170,31 @@ export default function DashboardApp() {
         return newSession;
     };
 
-    const deleteSession = async (e: React.MouseEvent, sessionId: string) => {
+    const deleteSession = (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation();
-        if (confirm('Delete this chat?')) {
-            const updatedSessions = sessions.filter(s => s.id !== sessionId);
-            setSessions(updatedSessions);
-            await chromeStorage.set('chat_sessions', updatedSessions);
+        openConfirm(
+            t('sidebar.deleteChat'),
+            'Delete this chat?',
+            async () => {
+                // Optimistic update - update UI immediately
+                const updatedSessions = sessions.filter(s => s.id !== sessionId);
+                setSessions(updatedSessions);
 
-            if (activeSessionId === sessionId) {
-                if (updatedSessions.length > 0) {
-                    setActiveSessionId(updatedSessions[0].id);
-                } else {
-                    createNewSession(updatedSessions);
+                if (activeSessionId === sessionId) {
+                    if (updatedSessions.length > 0) {
+                        setActiveSessionId(updatedSessions[0].id);
+                    } else {
+                        createNewSession(updatedSessions);
+                    }
                 }
-            }
-        }
+
+                // Save to storage in background
+                chromeStorage.set('chat_sessions', updatedSessions).catch(error => {
+                    console.error('Failed to save chat sessions', error);
+                });
+            },
+            true
+        );
     };
 
     // Handlers
@@ -160,23 +213,57 @@ export default function DashboardApp() {
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!activeBookmarkId) return;
-        if (confirm('Are you sure you want to delete this bookmark?')) {
-            await remove(activeBookmarkId);
-            setActiveBookmarkId(null);
-            setDetailedBookmark(null);
-        }
+        openConfirm(
+            t('dashboard.deleteBookmark'),
+            'Are you sure you want to delete this bookmark?',
+            async () => {
+                const bookmarkIdToDelete = activeBookmarkId;
+
+                // Optimistic update - clear UI immediately
+                setActiveBookmarkId(null);
+                setDetailedBookmark(null);
+
+                try {
+                    // Delete in background
+                    await remove(bookmarkIdToDelete);
+                } catch (error) {
+                    console.error('Failed to delete bookmark', error);
+                    // Could restore the bookmark here if needed
+                }
+            },
+            true
+        );
     };
 
     const handleUpdateTags = async (newTags: string[]) => {
         if (!activeBookmark) return;
-        await save({ ...activeBookmark, tags: newTags });
+
+        // Optimistic update - update UI immediately
+        const previousBookmark = activeBookmark;
+        const optimisticBookmark = { ...activeBookmark, tags: newTags };
+
+        // Update the bookmark in the local state immediately for smooth UX
+        if (detailedBookmark) {
+            setDetailedBookmark({ ...detailedBookmark, tags: newTags });
+        }
+
+        try {
+            // Save to backend in the background
+            await save(optimisticBookmark);
+        } catch (error) {
+            // Revert on error
+            console.error('Failed to update tags', error);
+            if (detailedBookmark) {
+                setDetailedBookmark({ ...detailedBookmark, tags: previousBookmark.tags || [] });
+            }
+        }
     };
 
     const handleRegenerateTags = async () => {
         if (!activeBookmark || !detailedBookmark) return;
-        setIsRegenerating(true);
+        setIsRegeneratingTags(true);
         try {
             const tags = await extractSmartTags({
                 content: detailedBookmark.rawContent || detailedBookmark.summary,
@@ -187,13 +274,13 @@ export default function DashboardApp() {
         } catch (error) {
             console.error('Failed to regenerate tags', error);
         } finally {
-            setIsRegenerating(false);
+            setIsRegeneratingTags(false);
         }
     };
 
     const handleRegenerateSummary = async () => {
         if (!activeBookmark || !detailedBookmark) return;
-        setIsRegenerating(true);
+        setIsRegeneratingSummary(true);
         try {
             const summary = await generateSummary({
                 content: detailedBookmark.rawContent || detailedBookmark.summary,
@@ -204,7 +291,7 @@ export default function DashboardApp() {
         } catch (error) {
             console.error('Failed to regenerate summary', error);
         } finally {
-            setIsRegenerating(false);
+            setIsRegeneratingSummary(false);
         }
     };
 
@@ -271,16 +358,22 @@ export default function DashboardApp() {
         }
     };
 
-    const handleResetSession = async () => {
+    const handleResetSession = () => {
         if (!activeSessionId) return;
-        if (confirm('Clear all messages in this chat?')) {
-            const updatedSessions = sessions.map(s =>
-                s.id === activeSessionId
-                    ? { ...s, messages: [], updatedAt: new Date().toISOString() }
-                    : s
-            );
-            setSessions(updatedSessions);
-        }
+        openConfirm(
+            t('sidebar.resetChat'),
+            'Clear all messages in this chat?',
+            async () => {
+                const updatedSessions = sessions.map(s =>
+                    s.id === activeSessionId
+                        ? { ...s, messages: [], updatedAt: new Date().toISOString() }
+                        : s
+                );
+                setSessions(updatedSessions);
+                await chromeStorage.set('chat_sessions', updatedSessions);
+            },
+            true
+        );
     };
 
     const askAssistant = async () => {
@@ -405,12 +498,33 @@ export default function DashboardApp() {
                         <h1 style={{ fontSize: '1.25rem', letterSpacing: '-0.025em' }}>{t('app.name')}</h1>
                     </div>
                 </div>
-                <div style={{ padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    <span>{t('sidebar.myLibrary')}</span>
-                    <span className="badge badge-subtle">{bookmarks.length}</span>
+                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+                    <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('sidebar.myLibrary')}</span>
+                        <span className="badge badge-subtle">{filteredBookmarks.length}</span>
+                    </div>
+                    <select
+                        value={selectedTag || ''}
+                        onChange={(e) => setSelectedTag(e.target.value || null)}
+                        style={{
+                            width: '100%',
+                            padding: '0.375rem',
+                            fontSize: '0.8rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid var(--border)',
+                            background: 'var(--bg-main)',
+                            color: 'var(--text-primary)',
+                            outline: 'none'
+                        }}
+                    >
+                        <option value="">{t('sidebar.allTags')}</option>
+                        {allTags.map(tag => (
+                            <option key={tag} value={tag}>{tag}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="sidebar__list">
-                    {bookmarks.map((bookmark) => (
+                    {filteredBookmarks.map((bookmark) => (
                         <div
                             key={bookmark.id}
                             className={`nav-item ${activeBookmarkId === bookmark.id ? 'active' : ''}`}
@@ -473,7 +587,16 @@ export default function DashboardApp() {
                         {activeTab === 'chat' && (
                             <div style={{ marginRight: '0.5rem' }} />
                         )}
-                        <span className="user-email">{user.email}</span>
+                        {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
+                            <img
+                                src={user.user_metadata.avatar_url || user.user_metadata.picture}
+                                alt={user.email || 'User'}
+                                className="user-avatar"
+                                title={user.email}
+                            />
+                        ) : (
+                            <span className="user-email">{user.email}</span>
+                        )}
                         <button type="button" className="ghost btn-sm" onClick={logout}>
                             {t('app.signOut')}
                         </button>
@@ -516,11 +639,11 @@ export default function DashboardApp() {
                                             type="button"
                                             className="btn-icon"
                                             onClick={handleRegenerateTags}
-                                            disabled={isRegenerating}
+                                            disabled={isRegeneratingTags}
                                             title={t('dashboard.autoTag')}
                                         >
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.autoTag')}</title><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
-                                            {isRegenerating ? t('dashboard.analyzing') : t('dashboard.autoTag')}
+                                            {isRegeneratingTags ? t('dashboard.analyzing') : t('dashboard.autoTag')}
                                         </button>
                                     </div>
                                     <TagInput
@@ -537,18 +660,24 @@ export default function DashboardApp() {
                                             type="button"
                                             className="btn-icon"
                                             onClick={handleRegenerateSummary}
-                                            disabled={isRegenerating}
+                                            disabled={isRegeneratingSummary}
                                             title={t('dashboard.regenerate')}
                                         >
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.regenerate')}</title><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                            {isRegenerating ? t('dashboard.writing') : t('dashboard.regenerate')}
+                                            {isRegeneratingSummary ? t('dashboard.writing') : t('dashboard.regenerate')}
                                         </button>
                                     </div>
+
 
                                     <div className="markdown-body">
                                         {loadingContent && (
                                             <div className="text-subtle" style={{ marginBottom: '1rem', fontSize: '0.875rem' }}>
                                                 {t('dashboard.fetchingContent')}
+                                            </div>
+                                        )}
+                                        {detailedBookmark?.rawContent && (
+                                            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                <strong>📄 Original Content</strong> - Showing full page content
                                             </div>
                                         )}
                                         <ReactMarkdown>
@@ -757,54 +886,65 @@ export default function DashboardApp() {
                     )}
                 </div>
 
-            </main>
+            </main >
 
             {/* Right Sidebar - Chat History (Only in Chat Tab) */}
-            {activeTab === 'chat' && (
-                <aside className="sidebar-right">
-                    <div className="sidebar__header">
-                        <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{t('sidebar.chats')}</h1>
-                        <div className="flex-center" style={{ gap: '0.5rem' }}>
-                            <button type="button" className="btn-icon" onClick={handleResetSession} title={t('sidebar.resetChat')}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.resetChat')}</title><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                            </button>
-                            <button type="button" className="btn-icon" onClick={() => createNewSession()} title={t('sidebar.newChat')}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.newChat')}</title><path d="M12 5v14M5 12h14" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div className="sidebar__list">
-                        {sessions.map((session) => (
-                            <div
-                                key={session.id}
-                                className={`nav-item ${activeSessionId === session.id ? 'active' : ''}`}
-                                onClick={() => setActiveSessionId(session.id)}
-                                // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        setActiveSessionId(session.id);
-                                    }
-                                }}
-                            >
-                                <div className="flex-between">
-                                    <h3 style={{ margin: 0 }}>{session.title}</h3>
-                                    <button
-                                        type="button"
-                                        className="btn-icon danger"
-                                        style={{ padding: '2px', opacity: 0.6 }}
-                                        onClick={(e) => deleteSession(e, session.id)}
-                                    >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.deleteChat')}</title><path d="M18 6L6 18M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-                                <p>{new Date(session.updatedAt).toLocaleDateString()}</p>
+            {
+                activeTab === 'chat' && (
+                    <aside className="sidebar-right">
+                        <div className="sidebar__header">
+                            <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{t('sidebar.chats')}</h1>
+                            <div className="flex-center" style={{ gap: '0.5rem' }}>
+                                <button type="button" className="btn-icon" onClick={handleResetSession} title={t('sidebar.resetChat')}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.resetChat')}</title><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                                </button>
+                                <button type="button" className="btn-icon" onClick={() => createNewSession()} title={t('sidebar.newChat')}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.newChat')}</title><path d="M12 5v14M5 12h14" /></svg>
+                                </button>
                             </div>
-                        ))}
-                    </div>
-                </aside>
-            )}
+                        </div>
+                        <div className="sidebar__list">
+                            {sessions.map((session) => (
+                                <div
+                                    key={session.id}
+                                    className={`nav-item ${activeSessionId === session.id ? 'active' : ''}`}
+                                    onClick={() => setActiveSessionId(session.id)}
+                                    // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            setActiveSessionId(session.id);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex-between">
+                                        <h3 style={{ margin: 0 }}>{session.title}</h3>
+                                        <button
+                                            type="button"
+                                            className="btn-icon danger"
+                                            style={{ padding: '2px', opacity: 0.6 }}
+                                            onClick={(e) => deleteSession(e, session.id)}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.deleteChat')}</title><path d="M18 6L6 18M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                    <p>{new Date(session.updatedAt).toLocaleDateString()}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
+                )
+            }
+
+            <ConfirmationModal
+                isOpen={modalConfig.isOpen}
+                onClose={closeConfirm}
+                onConfirm={modalConfig.onConfirm}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                isDangerous={modalConfig.isDangerous}
+            />
         </div>
     );
 }

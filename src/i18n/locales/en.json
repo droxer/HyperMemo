@@ -15,7 +15,8 @@
         "chats": "Chats",
         "newChat": "New Chat",
         "resetChat": "Reset Chat",
-        "deleteChat": "Delete Chat"
+        "deleteChat": "Delete Chat",
+        "allTags": "All Tags"
     },
     "tabs": {
         "overview": "Overview",
