@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,9 +12,11 @@ import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { ChatInput } from '@/components/ChatInput';
 import { Drawer } from '@/components/Drawer';
 import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
+import type { TagSummary } from '@/types/tag';
 import type { Subscription } from '@/types/subscription';
 import { draftAnswerFromBookmarks, type RagMatch } from '@/services/ragService';
 import { composeNoteFromBookmarks, exportNoteToGoogleDocs } from '@/services/notesService';
+import { listTags } from '@/services/tagService';
 import { getUserSubscription } from '@/services/subscriptionService';
 import { ApiError } from '@/services/apiClient';
 import { chromeStorage } from '@/utils/chrome';
@@ -57,6 +59,41 @@ export default function DashboardApp() {
     const [tagSearch, setTagSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
+    const bookmarkSignatureRef = useRef<string | null>(null);
+
+    // Tag Data
+    const [tagSummaries, setTagSummaries] = useState<TagSummary[]>([]);
+    const [loadingTags, setLoadingTags] = useState(false);
+
+    const refreshTags = useCallback(async () => {
+        if (!user) {
+            setTagSummaries([]);
+            return;
+        }
+        try {
+            setLoadingTags(true);
+            const data = await listTags();
+            setTagSummaries(data);
+        } catch (error) {
+            console.error('Failed to load tags', error);
+        } finally {
+            setLoadingTags(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) {
+            setTagSummaries([]);
+            bookmarkSignatureRef.current = null;
+            return;
+        }
+        const signature = bookmarks.map(bookmark => `${bookmark.id}:${(bookmark.tags || []).join(',')}`).join('|');
+        if (bookmarkSignatureRef.current === signature) {
+            return;
+        }
+        bookmarkSignatureRef.current = signature;
+        void refreshTags();
+    }, [user, bookmarks, refreshTags]);
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
@@ -116,22 +153,35 @@ export default function DashboardApp() {
             new Date(subscription.endDate) > new Date();
     }, [subscription]);
 
-    const allTags = useMemo(() => {
-        const tags = new Set<string>();
-        for (const b of bookmarks) {
-            if (b.tags) {
-                for (const t of b.tags) {
-                    tags.add(t);
-                }
+    const availableTags = useMemo(() => {
+        if (tagSummaries.length > 0) {
+            return [...tagSummaries].sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        const counts = new Map<string, number>();
+        for (const bookmark of bookmarks) {
+            if (!bookmark.tags) continue;
+            for (const name of bookmark.tags) {
+                if (!name) continue;
+                counts.set(name, (counts.get(name) ?? 0) + 1);
             }
         }
-        return Array.from(tags).sort();
-    }, [bookmarks]);
+
+        return Array.from(counts.entries())
+            .map(([name, bookmarkCount]) => ({
+                id: name,
+                name,
+                bookmarkCount
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [tagSummaries, bookmarks]);
+
+    const tagNames = useMemo(() => availableTags.map(tag => tag.name), [availableTags]);
 
     const filteredTags = useMemo(() => {
-        if (!tagSearch) return allTags;
-        return allTags.filter(t => t.toLowerCase().includes(tagSearch.toLowerCase()));
-    }, [allTags, tagSearch]);
+        if (!tagSearch) return tagNames;
+        return tagNames.filter(t => t.toLowerCase().includes(tagSearch.toLowerCase()));
+    }, [tagNames, tagSearch]);
 
     // Load chat sessions on mount
     useEffect(() => {
@@ -282,6 +332,7 @@ export default function DashboardApp() {
                 try {
                     // Delete in background
                     await remove(bookmarkIdToDelete);
+                    await refreshTags();
                 } catch (error) {
                     console.error('Failed to delete bookmark', error);
                     // Could restore the bookmark here if needed
@@ -306,6 +357,7 @@ export default function DashboardApp() {
         try {
             // Save to backend in the background
             await save(optimisticBookmark);
+            await refreshTags();
         } catch (error) {
             // Revert on error
             console.error('Failed to update tags', error);
@@ -333,6 +385,7 @@ export default function DashboardApp() {
                 url: activeBookmark.url
             });
             await save({ ...activeBookmark, tags });
+            await refreshTags();
         } catch (error) {
             console.error('Failed to regenerate tags', error);
         } finally {
@@ -598,10 +651,13 @@ export default function DashboardApp() {
                             color: 'var(--text-primary)',
                             outline: 'none'
                         }}
+                        disabled={loadingTags && availableTags.length === 0}
                     >
                         <option value="">{t('sidebar.allTags')}</option>
-                        {allTags.map(tag => (
-                            <option key={tag} value={tag}>{tag}</option>
+                        {availableTags.map(tag => (
+                            <option key={tag.id} value={tag.name}>
+                                {tag.bookmarkCount !== undefined ? `${tag.name} (${tag.bookmarkCount})` : tag.name}
+                            </option>
                         ))}
                     </select>
                 </div>

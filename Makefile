@@ -1,4 +1,4 @@
-.PHONY: frontend-install frontend-dev frontend-build frontend-lint backend-db backend-functions backend-lint clean build-prod package release validate-build
+.PHONY: frontend-install frontend-dev frontend-build frontend-lint frontend-test backend-db backend-functions backend-lint backend-test clean build-prod package release validate-build
 
 SUPABASE ?= supabase
 VERSION := $(shell node -p "require('./package.json').version")
@@ -18,14 +18,20 @@ frontend-build: ## Type-check and produce production build
 frontend-lint: ## Run Biome lint
 	pnpm run lint
 
+frontend-test: ## Run Vitest suite for frontend
+	pnpm vitest run
+
 backend-db: ## Apply SQL migrations to the linked Supabase project
 	$(SUPABASE) db push
 
 backend-functions: ## Deploy Supabase Edge Functions
-	$(SUPABASE) functions deploy bookmarks summaries rag_query notes --import-map supabase/functions/deno.json
+	$(SUPABASE) functions deploy bookmarks summaries rag_query notes tags --import-map supabase/functions/deno.json
 
 backend-lint: ## Run Deno lint on backend functions
 	deno lint supabase/functions
+
+backend-test: ## Run Deno unit tests for backend helpers/functions
+	deno test supabase/functions
 
 clean: ## Remove build artifacts and caches
 	rm -rf dist

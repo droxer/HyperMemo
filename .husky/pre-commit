@@ -1,1 +1,5 @@
+set -e
+
 npx lint-staged
+pnpm vitest run
+deno test supabase/functions
