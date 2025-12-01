@@ -15,7 +15,6 @@ export interface BookmarkPayload {
     url: string;
     tags: string[];
     summary: string;
-    note?: string;
     rawContent?: string;
 }
 

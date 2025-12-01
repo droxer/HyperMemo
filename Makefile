@@ -22,7 +22,7 @@ backend-db: ## Apply SQL migrations to the linked Supabase project
 	$(SUPABASE) db push
 
 backend-functions: ## Deploy Supabase Edge Functions
-	$(SUPABASE) functions deploy bookmarks summaries rag_query notes
+	$(SUPABASE) functions deploy bookmarks summaries rag_query notes --import-map supabase/functions/deno.json
 
 backend-lint: ## Run Deno lint on backend functions
 	deno lint supabase/functions

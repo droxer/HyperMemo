@@ -1,14 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import { ANON_UID, REQUIRE_AUTH } from './env.ts';
+import { ANON_UID, REQUIRE_AUTH, SERVICE_ROLE_KEY } from './env.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured for Edge Functions.');
+if (!supabaseUrl || !SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_URL and SERVICE_ROLE_KEY must be configured for Edge Functions.');
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+export const supabaseAdmin = createClient(supabaseUrl, SERVICE_ROLE_KEY);
 
 function extractBearer(req: Request): string | null {
     const header = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';

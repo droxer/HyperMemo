@@ -7,9 +7,13 @@ import { getBookmark } from '@/services/bookmarkService';
 import { generateSummary, extractSmartTags } from '@/services/mlService';
 import { TagInput } from '@/components/TagInput';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
+import { SubscriptionBadge } from '@/components/SubscriptionBadge';
+import { SubscriptionManager } from '@/components/SubscriptionManager';
 import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
+import type { Subscription } from '@/types/subscription';
 import { draftAnswerFromBookmarks, type RagMatch } from '@/services/ragService';
 import { composeNoteFromBookmarks, exportNoteToGoogleDocs } from '@/services/notesService';
+import { getUserSubscription } from '@/services/subscriptionService';
 import { ApiError } from '@/services/apiClient';
 import { chromeStorage } from '@/utils/chrome';
 
@@ -19,7 +23,7 @@ export default function DashboardApp() {
     const { t } = useTranslation();
 
     // Navigation State
-    const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'notes' | 'subscription'>('overview');
     const [activeBookmarkId, setActiveBookmarkId] = useState<string | null>(null);
     const [detailedBookmark, setDetailedBookmark] = useState<Bookmark | null>(null);
     const [loadingContent, setLoadingContent] = useState(false);
@@ -40,6 +44,9 @@ export default function DashboardApp() {
     const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
     const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+    // Subscription State
+    const [subscription, setSubscription] = useState<Subscription | null>(null);
 
     // Chat Tag State
     const [chatTags, setChatTags] = useState<string[]>([]);
@@ -99,6 +106,13 @@ export default function DashboardApp() {
 
     const messages = activeSession?.messages || [];
 
+    // Check if user has Pro subscription
+    const isPro = useMemo(() => {
+        return subscription?.tier === 'pro' &&
+            subscription?.status === 'active' &&
+            new Date(subscription.endDate) > new Date();
+    }, [subscription]);
+
     const allTags = useMemo(() => {
         const tags = new Set<string>();
         for (const b of bookmarks) {
@@ -156,6 +170,17 @@ export default function DashboardApp() {
         return () => clearTimeout(timeoutId);
     }, [activeSessionId]);
 
+    // Load user subscription
+    useEffect(() => {
+        const loadSubscription = async () => {
+            if (user) {
+                const sub = await getUserSubscription();
+                setSubscription(sub);
+            }
+        };
+        loadSubscription();
+    }, [user]);
+
     const createNewSession = (currentSessions: ChatSession[] = sessions) => {
         const newSession: ChatSession = {
             id: crypto.randomUUID(),
@@ -198,6 +223,32 @@ export default function DashboardApp() {
     };
 
     // Handlers
+    const handleLandingPageSearch = async () => {
+        if (!question.trim()) return;
+
+        if (!isPro) {
+            openConfirm(
+                'Upgrade to Pro',
+                'Chat with your bookmarks using RAG technology is a Pro feature. Upgrade to unlock intelligent conversations with your saved knowledge.',
+                () => setActiveTab('subscription')
+            );
+            return;
+        }
+
+        // Create a new session for the landing page search
+        const newSession: ChatSession = {
+            id: crypto.randomUUID(),
+            title: 'New Chat',
+            messages: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        setActiveSessionId(newSession.id);
+        setActiveTab('chat');
+        await askAssistant(newSession);
+    };
+
     const handleBookmarkClick = async (id: string) => {
         setActiveBookmarkId(id);
         setActiveTab('overview');
@@ -262,6 +313,14 @@ export default function DashboardApp() {
     };
 
     const handleRegenerateTags = async () => {
+        if (!isPro) {
+            openConfirm(
+                'Upgrade to Pro',
+                'Auto-tagging is a Pro feature. Upgrade to automatically generate smart tags for your bookmarks.',
+                () => setActiveTab('subscription')
+            );
+            return;
+        }
         if (!activeBookmark || !detailedBookmark) return;
         setIsRegeneratingTags(true);
         try {
@@ -279,11 +338,19 @@ export default function DashboardApp() {
     };
 
     const handleRegenerateSummary = async () => {
+        if (!isPro) {
+            openConfirm(
+                'Upgrade to Pro',
+                'AI-powered summaries are a Pro feature. Upgrade to automatically generate summaries for your bookmarks.',
+                () => setActiveTab('subscription')
+            );
+            return;
+        }
         if (!activeBookmark || !detailedBookmark) return;
         setIsRegeneratingSummary(true);
         try {
             const summary = await generateSummary({
-                content: detailedBookmark.rawContent || detailedBookmark.summary,
+                content: detailedBookmark.rawContent,
                 title: activeBookmark.title,
                 url: activeBookmark.url
             });
@@ -376,8 +443,9 @@ export default function DashboardApp() {
         );
     };
 
-    const askAssistant = async () => {
-        if (!question.trim() || !activeSessionId) return;
+    const askAssistant = async (forcedSession?: ChatSession) => {
+        const targetSessionId = forcedSession?.id || activeSessionId;
+        if (!question.trim() || !targetSessionId) return;
 
         const currentQuestion = question;
         setQuestion('');
@@ -396,29 +464,37 @@ export default function DashboardApp() {
         };
 
         // Optimistically update UI
-        const updatedSessions = sessions.map(s => {
-            if (s.id === activeSessionId) {
-                // Update title if it's the first message
-                const title = s.messages.length === 0 ? currentQuestion.slice(0, 30) + (currentQuestion.length > 30 ? '...' : '') : s.title;
-                return {
-                    ...s,
-                    title,
-                    messages: [...s.messages, userMessage],
-                    updatedAt: new Date().toISOString()
-                };
+        setSessions(prevSessions => {
+            let currentSessions = prevSessions;
+            // If a forced session is provided and not in the list, prepend it
+            if (forcedSession && !currentSessions.find(s => s.id === forcedSession.id)) {
+                currentSessions = [forcedSession, ...currentSessions];
             }
-            return s;
+
+            const updatedSessions = currentSessions.map(s => {
+                if (s.id === targetSessionId) {
+                    // Update title if it's the first message
+                    const title = s.messages.length === 0 ? currentQuestion.slice(0, 30) + (currentQuestion.length > 30 ? '...' : '') : s.title;
+                    return {
+                        ...s,
+                        title,
+                        messages: [...s.messages, userMessage],
+                        updatedAt: new Date().toISOString()
+                    };
+                }
+                return s;
+            });
+
+            // Move active session to top
+            const activeSessionIndex = updatedSessions.findIndex(s => s.id === targetSessionId);
+            if (activeSessionIndex > 0) {
+                const session = updatedSessions[activeSessionIndex];
+                updatedSessions.splice(activeSessionIndex, 1);
+                updatedSessions.unshift(session);
+            }
+
+            return updatedSessions;
         });
-
-        // Move active session to top
-        const activeSessionIndex = updatedSessions.findIndex(s => s.id === activeSessionId);
-        if (activeSessionIndex > 0) {
-            const session = updatedSessions[activeSessionIndex];
-            updatedSessions.splice(activeSessionIndex, 1);
-            updatedSessions.unshift(session);
-        }
-
-        setSessions(updatedSessions);
 
         try {
             const response = await draftAnswerFromBookmarks(currentQuestion, chatTags);
@@ -433,7 +509,7 @@ export default function DashboardApp() {
             };
 
             setSessions(prevSessions => prevSessions.map(s =>
-                s.id === activeSessionId
+                s.id === targetSessionId
                     ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: new Date().toISOString() }
                     : s
             ));
@@ -569,9 +645,20 @@ export default function DashboardApp() {
                         <button
                             type="button"
                             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('chat')}
+                            onClick={() => {
+                                if (!isPro) {
+                                    openConfirm(
+                                        'Upgrade to Pro',
+                                        'Chat with your bookmarks using RAG technology is a Pro feature. Upgrade to unlock intelligent conversations with your saved knowledge.',
+                                        () => setActiveTab('subscription')
+                                    );
+                                    return;
+                                }
+                                setActiveTab('chat');
+                            }}
                         >
                             {t('tabs.chat')}
+                            {!isPro && <span className="badge badge-pro" style={{ marginLeft: '0.5rem' }}>Pro</span>}
                         </button>
                         <button
                             type="button"
@@ -582,11 +669,19 @@ export default function DashboardApp() {
                             {t('tabs.notes')}
                             <span className="badge badge-subtle">{t('tabs.comingSoon')}</span>
                         </button>
+                        <button
+                            type="button"
+                            className={`tab ${activeTab === 'subscription' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('subscription')}
+                        >
+                            {t('tabs.subscription')}
+                        </button>
                     </div>
                     <div className="flex-center">
                         {activeTab === 'chat' && (
                             <div style={{ marginRight: '0.5rem' }} />
                         )}
+                        <SubscriptionBadge subscription={subscription} />
                         {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
                             <img
                                 src={user.user_metadata.avatar_url || user.user_metadata.picture}
@@ -688,13 +783,151 @@ export default function DashboardApp() {
                             </div>
                         ) : (
                             <div className="empty-state">
-                                <div className="flex-center" style={{ flexDirection: 'column', gap: '1.5rem', opacity: 0.8 }}>
+                                <div className="flex-center" style={{ flexDirection: 'column', gap: '1.5rem', opacity: 0.8, maxWidth: '600px', width: '100%', margin: '0 auto' }}>
                                     <img src="/icons/icon-128.png" alt="HyperMemo" style={{ width: 80, height: 80 }} />
                                     <div style={{ textAlign: 'center' }}>
                                         <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.025em', marginBottom: '0.5rem', color: '#1e293b' }}>{t('app.name')}</h1>
                                         <p style={{ fontSize: '1.125rem', color: '#64748b', margin: 0 }}>{t('app.slogan')}</p>
                                     </div>
-                                    <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '1rem' }}>{t('dashboard.selectBookmark')}</p>
+
+                                    <div className="landing-search" style={{ width: '100%', position: 'relative' }}>
+                                        {chatTags.length > 0 && (
+                                            <div className="chat-tags" style={{ display: 'flex', gap: '0.5rem', padding: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                                                {chatTags.map(tag => (
+                                                    <span key={tag} style={{
+                                                        background: '#e0f2fe',
+                                                        color: '#0369a1',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '0.75rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        @{tag}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveChatTag(tag)}
+                                                            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div style={{
+                                            position: 'relative',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            background: 'white',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '1.25rem',
+                                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+                                            padding: '1rem 1.25rem',
+                                            transition: 'box-shadow 0.2s, border-color 0.2s'
+                                        }}>
+                                            <div style={{ marginRight: '1rem', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <title>Search</title>
+                                                    <circle cx="11" cy="11" r="8" />
+                                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                                </svg>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={question}
+                                                onChange={handleChatInputChange}
+                                                onKeyDown={(e) => {
+                                                    handleKeyDown(e);
+                                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !showTagSuggestions) {
+                                                        handleLandingPageSearch();
+                                                    }
+                                                }}
+                                                placeholder="Ask anything about your bookmarks..."
+                                                style={{
+                                                    flex: 1,
+                                                    border: 'none',
+                                                    outline: 'none',
+                                                    fontSize: '1.125rem',
+                                                    lineHeight: '1.5',
+                                                    color: '#1e293b',
+                                                    background: 'transparent'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleLandingPageSearch}
+                                                disabled={!question.trim()}
+                                                style={{
+                                                    background: question.trim() ? '#0f172a' : '#f1f5f9',
+                                                    color: question.trim() ? 'white' : '#cbd5e1',
+                                                    border: 'none',
+                                                    borderRadius: '0.75rem',
+                                                    padding: '0.5rem',
+                                                    cursor: question.trim() ? 'pointer' : 'default',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.2s',
+                                                    marginLeft: '0.5rem'
+                                                }}
+                                            >
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <title>Send</title>
+                                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {showTagSuggestions && (
+                                            <div className="tag-suggestions" style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '0.5rem',
+                                                background: 'white',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '0.5rem',
+                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 10
+                                            }}>
+                                                {filteredTags.map((tag, index) => (
+                                                    <button
+                                                        type="button"
+                                                        key={tag}
+                                                        onClick={() => handleTagSelect(tag)}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.875rem',
+                                                            color: '#334155',
+                                                            background: index === selectedIndex ? '#f1f5f9' : 'white',
+                                                            border: 'none',
+                                                            width: '100%',
+                                                            textAlign: 'left',
+                                                            display: 'block'
+                                                        }}
+                                                        onMouseEnter={() => setSelectedIndex(index)}
+                                                    >
+                                                        {tag}
+                                                    </button>
+                                                ))}
+                                                {filteredTags.length === 0 && (
+                                                    <div style={{ padding: '0.5rem 1rem', color: '#94a3b8', fontSize: '0.875rem' }}>
+                                                        No tags found
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <p style={{ fontSize: '0.875rem', color: '#94a3b8' }}>{t('dashboard.selectBookmark')}</p>
                                 </div>
                             </div>
                         )
@@ -812,7 +1045,23 @@ export default function DashboardApp() {
                                     </div>
                                 )}
 
-                                <div className="chat-input">
+                                <div style={{
+                                    position: 'relative',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    background: 'white',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '1rem',
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                    padding: '0.75rem 1rem'
+                                }}>
+                                    <div style={{ marginRight: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', height: '100%' }}>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <title>Search</title>
+                                            <circle cx="11" cy="11" r="8" />
+                                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                        </svg>
+                                    </div>
                                     <textarea
                                         ref={chatInputRef}
                                         value={question}
@@ -825,15 +1074,49 @@ export default function DashboardApp() {
                                         onKeyDown={handleKeyDown}
                                         className="chat-textarea"
                                         rows={1}
-                                        style={{ resize: 'none', overflow: 'hidden' }}
+                                        style={{
+                                            flex: 1,
+                                            border: 'none',
+                                            outline: 'none',
+                                            fontSize: '1rem',
+                                            lineHeight: '1.5',
+                                            padding: 0,
+                                            color: '#1e293b',
+                                            resize: 'none',
+                                            overflow: 'hidden',
+                                            background: 'transparent',
+                                            minHeight: '24px',
+                                            maxHeight: '150px'
+                                        }}
                                     />
                                     <button
                                         type="button"
-                                        className="btn-primary"
-                                        onClick={askAssistant}
+                                        onClick={() => askAssistant()}
                                         disabled={chatLoading || !question.trim()}
+                                        style={{
+                                            background: question.trim() ? '#0f172a' : '#f1f5f9',
+                                            color: question.trim() ? 'white' : '#cbd5e1',
+                                            border: 'none',
+                                            borderRadius: '0.5rem',
+                                            padding: '0.5rem',
+                                            cursor: question.trim() ? 'pointer' : 'default',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s',
+                                            alignSelf: 'flex-end',
+                                            marginLeft: '0.5rem'
+                                        }}
                                     >
-                                        {chatLoading ? t('chat.thinking') : t('chat.send')}
+                                        {chatLoading ? (
+                                            <div className="spinner" style={{ width: 20, height: 20, border: '2px solid #cbd5e1', borderTopColor: '#64748b' }} />
+                                        ) : (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <title>Send</title>
+                                                <line x1="22" y1="2" x2="11" y2="13" />
+                                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                            </svg>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -936,6 +1219,12 @@ export default function DashboardApp() {
                     </aside>
                 )
             }
+
+            {activeTab === 'subscription' && (
+                <div className="subscription-view">
+                    <SubscriptionManager />
+                </div>
+            )}
 
             <ConfirmationModal
                 isOpen={modalConfig.isOpen}

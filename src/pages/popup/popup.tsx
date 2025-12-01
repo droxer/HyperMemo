@@ -7,6 +7,9 @@ import { TagInput } from '@/components/TagInput';
 import { requestPageContext } from '@/utils/chrome';
 import { summarizeText, extractTags } from '@/utils/summarize';
 import { generateSummary, extractSmartTags } from '@/services/mlService';
+import { getUserSubscription } from '@/services/subscriptionService';
+import type { Subscription } from '@/types/subscription';
+import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 
 const DEFAULT_FORM = {
     title: '',
@@ -25,6 +28,19 @@ export default function PopupApp() {
     const [summarizing, setSummarizing] = useState(false);
     const [tagging, setTagging] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [subscription, setSubscription] = useState<Subscription | null>(null);
+
+    const isPro = useMemo(() => {
+        return subscription?.tier === 'pro' &&
+            subscription?.status === 'active' &&
+            new Date(subscription.endDate) > new Date();
+    }, [subscription]);
+
+    useEffect(() => {
+        if (user) {
+            getUserSubscription().then(setSubscription);
+        }
+    }, [user]);
 
     useEffect(() => {
         requestPageContext().then((context) => {
@@ -80,6 +96,10 @@ export default function PopupApp() {
 
     const handleSummarize = async () => {
         if (!pageContext) return;
+        if (!isPro) {
+            setStatusMessage('Upgrade to Pro for AI summary');
+            return;
+        }
         setSummarizing(true);
         try {
             const summary = await generateSummary({
@@ -101,6 +121,10 @@ export default function PopupApp() {
 
     const handleSmartTags = async () => {
         if (!pageContext) return;
+        if (!isPro) {
+            setStatusMessage('Upgrade to Pro for auto-tags');
+            return;
+        }
         setTagging(true);
         try {
             const tags = await extractSmartTags({
@@ -154,6 +178,7 @@ export default function PopupApp() {
             <header className="header">
                 <h1>{t('popup.title')}</h1>
                 <div className="user-menu">
+                    <SubscriptionBadge subscription={subscription} />
                     {loading ? (
                         <span className="text-xs text-gray-500">...</span>
                     ) : user ? (

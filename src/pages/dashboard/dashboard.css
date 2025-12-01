@@ -284,6 +284,7 @@ body {
     gap: 1rem;
     max-width: 85%;
     animation: fadeIn 0.3s ease-out;
+    margin-bottom: 1.5rem;
 }
 
 @keyframes fadeIn {
@@ -308,14 +309,15 @@ body {
 }
 
 .chat-avatar {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.875rem;
     flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .chat-message--user .chat-avatar {
@@ -324,30 +326,31 @@ body {
 }
 
 .chat-message--assistant .chat-avatar {
-    background: var(--bg-active);
+    background: white;
     color: var(--primary);
+    border: 1px solid var(--border);
 }
 
 .chat-bubble {
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    border-radius: 1.5rem;
     font-size: 1rem;
-    line-height: 1.6;
+    line-height: 1.5;
     position: relative;
-    box-shadow: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .chat-message--user .chat-bubble {
     background: var(--primary);
     color: white;
-    border-bottom-right-radius: 2px;
+    border-bottom-right-radius: 0.25rem;
 }
 
 .chat-message--assistant .chat-bubble {
-    background: transparent;
-    border: none;
+    background: white;
+    border: 1px solid var(--border);
     color: var(--text-primary);
-    padding: 0.25rem 0;
+    border-bottom-left-radius: 0.25rem;
 }
 
 .chat-bubble .markdown-body>*:first-child {
@@ -592,8 +595,11 @@ button.ghost:hover {
 /* Markdown Content */
 .markdown-body {
     font-size: 1rem;
-    line-height: 1.7;
+    line-height: 1.8;
     color: var(--text-primary);
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .markdown-body h1,
@@ -601,83 +607,164 @@ button.ghost:hover {
 .markdown-body h3,
 .markdown-body h4 {
     margin-top: 1.5em;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.75em;
     font-weight: 600;
     color: var(--text-primary);
-    line-height: 1.25;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+.markdown-body h1:first-child,
+.markdown-body h2:first-child,
+.markdown-body h3:first-child {
+    margin-top: 0;
 }
 
 .markdown-body h1 {
-    font-size: 1.5em;
+    font-size: 1.75em;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5em;
+    margin-bottom: 1em;
 }
 
 .markdown-body h2 {
-    font-size: 1.25em;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 0.3em;
+    font-size: 1.4em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.4em;
+    margin-top: 2em;
 }
 
 .markdown-body h3 {
-    font-size: 1.1em;
+    font-size: 1.2em;
+    margin-top: 1.5em;
+}
+
+.markdown-body h4 {
+    font-size: 1.05em;
+    color: var(--text-secondary);
 }
 
 .markdown-body p {
-    margin-bottom: 1em;
+    margin-bottom: 1.25em;
+    line-height: 1.8;
 }
 
 .markdown-body ul,
 .markdown-body ol {
-    margin-bottom: 1em;
-    padding-left: 1.5em;
+    margin-bottom: 1.25em;
+    padding-left: 2em;
+    line-height: 1.8;
 }
 
 .markdown-body li {
-    margin-bottom: 0.25em;
+    margin-bottom: 0.5em;
+}
+
+.markdown-body li>p {
+    margin-bottom: 0.5em;
 }
 
 .markdown-body code {
     background: var(--bg-subtle);
-    padding: 0.2em 0.4em;
-    border-radius: 0.25em;
-    font-size: 0.875em;
+    padding: 0.2em 0.5em;
+    border-radius: 0.3em;
+    font-size: 0.9em;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    border: 1px solid var(--border);
+    color: #e11d48;
 }
 
 .markdown-body pre {
     background: #1e293b;
     color: #f8fafc;
-    padding: 1em;
+    padding: 1.25em;
     border-radius: 0.5rem;
     overflow-x: auto;
-    margin-bottom: 1em;
+    margin-bottom: 1.5em;
+    border: 1px solid #334155;
+    line-height: 1.6;
 }
 
 .markdown-body pre code {
     background: none;
     padding: 0;
     color: inherit;
+    border: none;
+    font-size: 0.875em;
 }
 
 .markdown-body blockquote {
-    border-left: 4px solid #cbd5e1;
-    margin: 0 0 1em 0;
-    padding-left: 1em;
+    border-left: 4px solid var(--primary);
+    margin: 1.5em 0;
+    padding: 0.75em 1.25em;
+    background: var(--bg-subtle);
+    border-radius: 0 0.5rem 0.5rem 0;
     color: var(--text-secondary);
+    font-style: italic;
+}
+
+.markdown-body blockquote p:last-child {
+    margin-bottom: 0;
 }
 
 .markdown-body a {
     color: var(--primary);
     text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
 }
 
 .markdown-body a:hover {
-    text-decoration: underline;
+    border-bottom-color: var(--primary);
 }
 
 .markdown-body img {
     max-width: 100%;
+    height: auto;
     border-radius: 0.5rem;
-    margin: 1em 0;
+    margin: 1.5em 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-body hr {
+    border: none;
+    border-top: 2px solid var(--border);
+    margin: 2em 0;
+}
+
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em 0;
+    overflow-x: auto;
+    display: block;
+}
+
+.markdown-body th,
+.markdown-body td {
+    padding: 0.75em 1em;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.markdown-body th {
+    background: var(--bg-subtle);
+    font-weight: 600;
+}
+
+.markdown-body tr:nth-child(even) {
+    background: var(--bg-subtle);
+}
+
+.markdown-body strong {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.markdown-body em {
+    font-style: italic;
+    color: var(--text-secondary);
 }
 
 /* Tag Input Styles (Ported from Popup) */
@@ -821,21 +908,23 @@ button.ghost:hover {
 .chat-bubble-container {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
     max-width: 100%;
 }
 
 .chat-citations {
     margin-top: 0.25rem;
-    padding-left: 0.5rem;
+    padding-left: 0.25rem;
 }
 
 .chat-citations-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-    display: block;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -849,24 +938,34 @@ button.ghost:hover {
 .citation-chip {
     display: inline-flex;
     align-items: center;
-    max-width: 200px;
-    padding: 0.25rem 0.5rem;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    max-width: 240px;
+    padding: 0.375rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    color: #475569;
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     transition: all 0.2s;
+    font-weight: 500;
 }
 
 .citation-chip:hover {
-    background: var(--bg-active);
+    background: #ffffff;
     color: var(--primary);
-    border-color: var(--border);
+    border-color: var(--primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+
+.citation-chip::before {
+    content: "📄";
+    margin-right: 0.375rem;
+    font-size: 0.9em;
+    opacity: 0.7;
 }
 
 /* Badges */
@@ -888,6 +987,13 @@ button.ghost:hover {
     background-color: var(--bg-subtle);
     color: var(--text-secondary);
     border: 1px solid var(--border);
+}
+
+.badge-pro {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: #78350f;
+    border: 1px solid #f59e0b;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
 /* Modal Styles */

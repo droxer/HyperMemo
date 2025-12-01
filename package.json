@@ -10,7 +10,8 @@
         "preview": "vite preview",
         "lint": "biome lint .",
         "test": "vitest",
-        "prepare": "husky"
+        "prepare": "husky",
+        "sub": "tsx scripts/manage-subscription.ts"
     },
     "keywords": [
         "chrome-extension",
@@ -45,6 +46,7 @@
         "husky": "^9.1.7",
         "jsdom": "^27.2.0",
         "lint-staged": "^16.2.7",
+        "tsx": "^4.21.0",
         "type-fest": "^5.2.0",
         "typescript": "^5.6.3",
         "vite": "^5.4.10",

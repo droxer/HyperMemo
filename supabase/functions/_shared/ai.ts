@@ -72,27 +72,7 @@ export async function embedText(text: string): Promise<number[]> {
     return await callOpenAIEmbedding(normalized);
 }
 
-export function summarizePrompt(title: string, content: string, url: string): string {
-    const parts = ['You are HyperMemo, a concise research assistant.'];
-    if (title) {
-        parts.push(`Title: ${title}`);
-    }
-    if (url) {
-        parts.push(`URL: ${url}`);
-    }
-    parts.push('Content:');
-    parts.push(content.slice(0, 8000));
-    return parts.join('\n');
-}
-
-export function tagsPrompt(title: string, content: string): string {
-    return [
-        'Suggest up to 5 concise tags (single words) describing the following page. Return comma-separated words only.',
-        `Title: ${title}`,
-        'Content:',
-        content.slice(0, 4000)
-    ].join('\n');
-}
+import { summarizePrompt, tagsPrompt } from './prompts.ts';
 
 export function parseTags(raw: string): string[] {
     return raw

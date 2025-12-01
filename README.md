@@ -31,7 +31,7 @@ Create `.env` (or `.env.local`) with:
 ```
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_FUNCTION_URL=https://YOUR_PROJECT_REF.functions.supabase.co # optional override
-VITE_SUPABASE_ANON_KEY=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_GOOGLE_OAUTH_CLIENT_ID=...
 VITE_AUTO_ANON_LOGIN=false
 VITE_AUTH_WAIT_TIMEOUT_MS=5000
@@ -48,6 +48,13 @@ Backend code now lives under `supabase/`:
 - `supabase/functions/**` contains Deno-based Edge Functions for bookmarks, summaries, tags, and RAG chat.
 
 Use the Supabase CLI (or GitHub Action) to push schema changes and deploy functions:
+
+## Documentation
+
+- [Subscription System](./docs/SUBSCRIPTION_SYSTEM.md): Details on Free/Pro tiers, feature gating, and management.
+
+- [Release Guide](./docs/RELEASE.md): Steps to build, package, and publish the extension.
+- [Google Auth](./docs/google-auth.md): Setup guide for Google OAuth.
 
 ```bash
 supabase login
