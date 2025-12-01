@@ -1,0 +1,73 @@
+{
+    "app": {
+        "name": "HyperMemo",
+        "slogan": "Your Second Brain for the Web",
+        "loading": "Loading workspace...",
+        "signInTitle": "Sign in to HyperMemo",
+        "signInDesc": "You need to be signed in to view your bookmarks.",
+        "signInGoogle": "Sign in with Google",
+        "signIn": "Sign in",
+        "signOut": "Sign out",
+        "openWorkspace": "Open Workspace"
+    },
+    "sidebar": {
+        "myLibrary": "My Library",
+        "chats": "Chats",
+        "newChat": "New Chat",
+        "resetChat": "Reset Chat",
+        "deleteChat": "Delete Chat"
+    },
+    "tabs": {
+        "overview": "Overview",
+        "chat": "Chat",
+        "notes": "Notes",
+        "comingSoon": "Coming Soon"
+    },
+    "dashboard": {
+        "selectBookmark": "Select a bookmark from the sidebar to view details",
+        "selectBookmarkSummary": "Select a bookmark from the sidebar to view its summary.",
+        "deleteBookmark": "Delete bookmark",
+        "externalLink": "External link",
+        "autoTag": "Auto-tag",
+        "analyzing": "Analyzing...",
+        "addTags": "Add tags...",
+        "summary": "Summary",
+        "regenerate": "Regenerate",
+        "writing": "Writing...",
+        "fetchingContent": "Fetching original content...",
+        "noContent": "No content available.",
+        "untitled": "Untitled"
+    },
+    "chat": {
+        "placeholder": "Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)",
+        "send": "Send",
+        "thinking": "Thinking...",
+        "sources": "Sources:",
+        "you": "You",
+        "ai": "AI"
+    },
+    "popup": {
+        "title": "Save Bookmark",
+        "fieldTitle": "Title",
+        "placeholderTitle": "Page title",
+        "fieldUrl": "URL",
+        "placeholderUrl": "https://",
+        "fieldTags": "Tags",
+        "autoSuggest": "Auto-suggest",
+        "suggesting": "Suggesting...",
+        "fieldSummary": "Summary",
+        "autoSummarize": "Auto-summarize",
+        "summarizing": "Summarizing...",
+        "placeholderSummary": "Add a note or summary...",
+        "save": "Save Bookmark",
+        "saving": "Saving...",
+        "signInToSave": "Sign in to save",
+        "status": {
+            "signIn": "Please sign in before saving",
+            "missingUrl": "Missing URL",
+            "saving": "Saving bookmark…",
+            "saved": "Saved!",
+            "failed": "Failed to save bookmark"
+        }
+    }
+}

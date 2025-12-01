@@ -1,0 +1,73 @@
+{
+    "app": {
+        "name": "HyperMemo",
+        "slogan": "您的網路第二大腦",
+        "loading": "正在載入工作區...",
+        "signInTitle": "登入 HyperMemo",
+        "signInDesc": "您需要登入才能查看書籤。",
+        "signInGoogle": "使用 Google 登入",
+        "signIn": "登入",
+        "signOut": "登出",
+        "openWorkspace": "打開工作區"
+    },
+    "sidebar": {
+        "myLibrary": "我的資料庫",
+        "chats": "聊天",
+        "newChat": "新對話",
+        "resetChat": "重置對話",
+        "deleteChat": "刪除對話"
+    },
+    "tabs": {
+        "overview": "概覽",
+        "chat": "聊天",
+        "notes": "筆記",
+        "comingSoon": "即將推出"
+    },
+    "dashboard": {
+        "selectBookmark": "從側邊欄選擇一個書籤以查看詳情",
+        "selectBookmarkSummary": "從側邊欄選擇一個書籤以查看其摘要。",
+        "deleteBookmark": "刪除書籤",
+        "externalLink": "外部連結",
+        "autoTag": "自動標籤",
+        "analyzing": "分析中...",
+        "addTags": "添加標籤...",
+        "summary": "摘要",
+        "regenerate": "重新生成",
+        "writing": "撰寫中...",
+        "fetchingContent": "正在獲取原始內容...",
+        "noContent": "無可用內容。",
+        "untitled": "無標題"
+    },
+    "chat": {
+        "placeholder": "詢問關於您保存的知識... (Cmd+Enter 發送, @ 引用標籤)",
+        "send": "發送",
+        "thinking": "思考中...",
+        "sources": "來源:",
+        "you": "你",
+        "ai": "AI"
+    },
+    "popup": {
+        "title": "保存書籤",
+        "fieldTitle": "標題",
+        "placeholderTitle": "頁面標題",
+        "fieldUrl": "連結",
+        "placeholderUrl": "https://",
+        "fieldTags": "標籤",
+        "autoSuggest": "自動建議",
+        "suggesting": "建議中...",
+        "fieldSummary": "摘要",
+        "autoSummarize": "自動摘要",
+        "summarizing": "摘要中...",
+        "placeholderSummary": "添加筆記或摘要...",
+        "save": "保存書籤",
+        "saving": "保存中...",
+        "signInToSave": "登入以保存",
+        "status": {
+            "signIn": "保存前請先登入",
+            "missingUrl": "缺少連結",
+            "saving": "正在保存書籤…",
+            "saved": "已保存!",
+            "failed": "保存書籤失敗"
+        }
+    }
+}

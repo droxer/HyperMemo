@@ -1,0 +1,73 @@
+{
+    "app": {
+        "name": "HyperMemo",
+        "slogan": "您的网络第二大脑",
+        "loading": "正在加载工作区...",
+        "signInTitle": "登录 HyperMemo",
+        "signInDesc": "您需要登录才能查看书签。",
+        "signInGoogle": "使用 Google 登录",
+        "signIn": "登录",
+        "signOut": "退出登录",
+        "openWorkspace": "打开工作区"
+    },
+    "sidebar": {
+        "myLibrary": "我的资料库",
+        "chats": "聊天",
+        "newChat": "新对话",
+        "resetChat": "重置对话",
+        "deleteChat": "删除对话"
+    },
+    "tabs": {
+        "overview": "概览",
+        "chat": "聊天",
+        "notes": "笔记",
+        "comingSoon": "即将推出"
+    },
+    "dashboard": {
+        "selectBookmark": "从侧边栏选择一个书签以查看详情",
+        "selectBookmarkSummary": "从侧边栏选择一个书签以查看其摘要。",
+        "deleteBookmark": "删除书签",
+        "externalLink": "外部链接",
+        "autoTag": "自动标签",
+        "analyzing": "分析中...",
+        "addTags": "添加标签...",
+        "summary": "摘要",
+        "regenerate": "重新生成",
+        "writing": "撰写中...",
+        "fetchingContent": "正在获取原始内容...",
+        "noContent": "无可用内容。",
+        "untitled": "无标题"
+    },
+    "chat": {
+        "placeholder": "询问关于您保存的知识... (Cmd+Enter 发送, @ 引用标签)",
+        "send": "发送",
+        "thinking": "思考中...",
+        "sources": "来源:",
+        "you": "你",
+        "ai": "AI"
+    },
+    "popup": {
+        "title": "保存书签",
+        "fieldTitle": "标题",
+        "placeholderTitle": "页面标题",
+        "fieldUrl": "链接",
+        "placeholderUrl": "https://",
+        "fieldTags": "标签",
+        "autoSuggest": "自动建议",
+        "suggesting": "建议中...",
+        "fieldSummary": "摘要",
+        "autoSummarize": "自动摘要",
+        "summarizing": "摘要中...",
+        "placeholderSummary": "添加笔记或摘要...",
+        "save": "保存书签",
+        "saving": "保存中...",
+        "signInToSave": "登录以保存",
+        "status": {
+            "signIn": "保存前请先登录",
+            "missingUrl": "缺少链接",
+            "saving": "正在保存书签…",
+            "saved": "已保存!",
+            "failed": "保存书签失败"
+        }
+    }
+}

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarksContext } from '@/contexts/BookmarkContext';
@@ -14,6 +15,7 @@ import { chromeStorage } from '@/utils/chrome';
 export default function DashboardApp() {
     const { user, login, logout, loading } = useAuth();
     const { bookmarks, save, remove } = useBookmarksContext();
+    const { t } = useTranslation();
 
     // Navigation State
     const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'notes'>('overview');
@@ -374,7 +376,7 @@ export default function DashboardApp() {
     if (loading) {
         return (
             <div className="dashboard dashboard--loading">
-                <p>Loading workspace...</p>
+                <p>{t('app.loading')}</p>
             </div>
         );
     }
@@ -383,10 +385,10 @@ export default function DashboardApp() {
         return (
             <div className="dashboard dashboard--auth">
                 <div className="dashboard__auth-card">
-                    <h1>Sign in to HyperMemo</h1>
-                    <p>You need to be signed in to view your bookmarks.</p>
+                    <h1>{t('app.signInTitle')}</h1>
+                    <p>{t('app.signInDesc')}</p>
                     <button type="button" className="primary" onClick={login}>
-                        Sign in with Google
+                        {t('app.signInGoogle')}
                     </button>
                 </div>
             </div>
@@ -400,11 +402,11 @@ export default function DashboardApp() {
                 <div className="sidebar__header">
                     <div className="flex-center" style={{ gap: '0.75rem' }}>
                         <img src="/icons/icon-48.png" alt="HyperMemo" style={{ width: 32, height: 32 }} />
-                        <h1 style={{ fontSize: '1.25rem', letterSpacing: '-0.025em' }}>HyperMemo</h1>
+                        <h1 style={{ fontSize: '1.25rem', letterSpacing: '-0.025em' }}>{t('app.name')}</h1>
                     </div>
                 </div>
                 <div style={{ padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    <span>My Library</span>
+                    <span>{t('sidebar.myLibrary')}</span>
                     <span className="badge badge-subtle">{bookmarks.length}</span>
                 </div>
                 <div className="sidebar__list">
@@ -422,7 +424,7 @@ export default function DashboardApp() {
                                 }
                             }}
                         >
-                            <h3>{bookmark.title || 'Untitled'}</h3>
+                            <h3>{bookmark.title || t('dashboard.untitled')}</h3>
                             <div className="flex-between">
                                 <p>{new URL(bookmark.url).hostname}</p>
                                 {activeTab === 'notes' && (
@@ -448,14 +450,14 @@ export default function DashboardApp() {
                             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
                             onClick={() => setActiveTab('overview')}
                         >
-                            Overview
+                            {t('tabs.overview')}
                         </button>
                         <button
                             type="button"
                             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
                             onClick={() => setActiveTab('chat')}
                         >
-                            Chat
+                            {t('tabs.chat')}
                         </button>
                         <button
                             type="button"
@@ -463,19 +465,19 @@ export default function DashboardApp() {
                             disabled
                             style={{ opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
-                            Notes
-                            <span className="badge badge-subtle">Coming Soon</span>
+                            {t('tabs.notes')}
+                            <span className="badge badge-subtle">{t('tabs.comingSoon')}</span>
                         </button>
                     </div>
                     <div className="flex-center">
                         {activeTab === 'chat' && (
                             <button type="button" className="ghost btn-sm" onClick={handleResetSession} style={{ marginRight: '0.5rem' }}>
-                                Reset Chat
+                                {t('sidebar.resetChat')}
                             </button>
                         )}
                         <span className="user-email">{user.email}</span>
                         <button type="button" className="ghost btn-sm" onClick={logout}>
-                            Sign out
+                            {t('app.signOut')}
                         </button>
                     </div>
                 </header>
@@ -492,16 +494,16 @@ export default function DashboardApp() {
                                                 type="button"
                                                 className="btn-icon danger"
                                                 onClick={handleDelete}
-                                                title="Delete bookmark"
+                                                title={t('dashboard.deleteBookmark')}
                                             >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Delete bookmark</title><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.deleteBookmark')}</title><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                                             </button>
                                         </div>
                                     </div>
 
                                     <div className="detail-meta">
                                         <a href={activeBookmark.url} target="_blank" rel="noreferrer" className="link-primary flex-center" style={{ gap: '0.5rem' }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>External link</title><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.externalLink')}</title><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                             {new URL(activeBookmark.url).hostname}
                                         </a>
                                         <span>•</span>
@@ -511,48 +513,48 @@ export default function DashboardApp() {
 
                                 <div className="detail-tags">
                                     <div className="detail-tags-header">
-                                        <span className="detail-tags-label">Tags</span>
+                                        <span className="detail-tags-label">{t('popup.fieldTags')}</span>
                                         <button
                                             type="button"
                                             className="btn-icon"
                                             onClick={handleRegenerateTags}
                                             disabled={isRegenerating}
-                                            title="Auto-generate tags"
+                                            title={t('dashboard.autoTag')}
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Auto-generate tags</title><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
-                                            {isRegenerating ? 'Analyzing...' : 'Auto-tag'}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.autoTag')}</title><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
+                                            {isRegenerating ? t('dashboard.analyzing') : t('dashboard.autoTag')}
                                         </button>
                                     </div>
                                     <TagInput
                                         value={activeBookmark.tags || []}
                                         onChange={handleUpdateTags}
-                                        placeholder="Add tags..."
+                                        placeholder={t('dashboard.addTags')}
                                     />
                                 </div>
 
                                 <div className="detail-content">
                                     <div className="detail-content-header">
-                                        <h2 className="detail-content-title">Summary</h2>
+                                        <h2 className="detail-content-title">{t('dashboard.summary')}</h2>
                                         <button
                                             type="button"
                                             className="btn-icon"
                                             onClick={handleRegenerateSummary}
                                             disabled={isRegenerating}
-                                            title="Regenerate summary"
+                                            title={t('dashboard.regenerate')}
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Regenerate summary</title><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                            {isRegenerating ? 'Writing...' : 'Regenerate'}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.regenerate')}</title><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                            {isRegenerating ? t('dashboard.writing') : t('dashboard.regenerate')}
                                         </button>
                                     </div>
 
                                     <div className="markdown-body">
                                         {loadingContent && (
                                             <div className="text-subtle" style={{ marginBottom: '1rem', fontSize: '0.875rem' }}>
-                                                Fetching original content...
+                                                {t('dashboard.fetchingContent')}
                                             </div>
                                         )}
                                         <ReactMarkdown>
-                                            {detailedBookmark?.rawContent || detailedBookmark?.summary || activeBookmark.summary || 'No content available.'}
+                                            {detailedBookmark?.rawContent || detailedBookmark?.summary || activeBookmark.summary || t('dashboard.noContent')}
                                         </ReactMarkdown>
                                     </div>
                                 </div>
@@ -562,10 +564,10 @@ export default function DashboardApp() {
                                 <div className="flex-center" style={{ flexDirection: 'column', gap: '1.5rem', opacity: 0.8 }}>
                                     <img src="/icons/icon-128.png" alt="HyperMemo" style={{ width: 80, height: 80 }} />
                                     <div style={{ textAlign: 'center' }}>
-                                        <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.025em', marginBottom: '0.5rem', color: '#1e293b' }}>HyperMemo</h1>
-                                        <p style={{ fontSize: '1.125rem', color: '#64748b', margin: 0 }}>Your Second Brain for the Web</p>
+                                        <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.025em', marginBottom: '0.5rem', color: '#1e293b' }}>{t('app.name')}</h1>
+                                        <p style={{ fontSize: '1.125rem', color: '#64748b', margin: 0 }}>{t('app.slogan')}</p>
                                     </div>
-                                    <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '1rem' }}>Select a bookmark from the sidebar to view details</p>
+                                    <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '1rem' }}>{t('dashboard.selectBookmark')}</p>
                                 </div>
                             </div>
                         )
@@ -577,7 +579,7 @@ export default function DashboardApp() {
                                 {messages.map((message) => (
                                     <div key={message.id} className={`chat-message chat-message--${message.role}`}>
                                         <div className="chat-avatar">
-                                            {message.role === 'user' ? 'You' : 'AI'}
+                                            {message.role === 'user' ? t('chat.you') : t('chat.ai')}
                                         </div>
                                         <div className="chat-bubble-container">
                                             <div className="chat-bubble markdown-body">
@@ -585,7 +587,7 @@ export default function DashboardApp() {
                                             </div>
                                             {message.citations && message.citations.length > 0 && (
                                                 <div className="chat-citations">
-                                                    <span className="chat-citations-label">Sources:</span>
+                                                    <span className="chat-citations-label">{t('chat.sources')}</span>
                                                     <div className="chat-citations-list">
                                                         {message.citations.map((citation) => (
                                                             <a
@@ -596,7 +598,7 @@ export default function DashboardApp() {
                                                                 className="citation-chip"
                                                                 title={citation.bookmark.title}
                                                             >
-                                                                {citation.bookmark.title || 'Untitled'}
+                                                                {citation.bookmark.title || t('dashboard.untitled')}
                                                             </a>
                                                         ))}
                                                     </div>
@@ -692,13 +694,19 @@ export default function DashboardApp() {
                                             e.target.style.height = 'auto';
                                             e.target.style.height = `${e.target.scrollHeight}px`;
                                         }}
-                                        placeholder="Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)"
+                                        placeholder={t('chat.placeholder')}
                                         onKeyDown={handleKeyDown}
+                                        className="chat-textarea"
                                         rows={1}
                                         style={{ resize: 'none', overflow: 'hidden' }}
                                     />
-                                    <button type="button" className="primary" onClick={askAssistant} disabled={chatLoading}>
-                                        {chatLoading ? 'Thinking...' : 'Send'}
+                                    <button
+                                        type="button"
+                                        className="btn-primary"
+                                        onClick={askAssistant}
+                                        disabled={chatLoading || !question.trim()}
+                                    >
+                                        {chatLoading ? t('chat.thinking') : t('chat.send')}
                                     </button>
                                 </div>
                             </div>
@@ -757,9 +765,9 @@ export default function DashboardApp() {
             {activeTab === 'chat' && (
                 <aside className="sidebar-right">
                     <div className="sidebar__header">
-                        <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Chats</h1>
-                        <button type="button" className="btn-icon" onClick={() => createNewSession()} title="New Chat">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>New Chat</title><path d="M12 5v14M5 12h14" /></svg>
+                        <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{t('sidebar.chats')}</h1>
+                        <button type="button" className="btn-icon" onClick={() => createNewSession()} title={t('sidebar.newChat')}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.newChat')}</title><path d="M12 5v14M5 12h14" /></svg>
                         </button>
                     </div>
                     <div className="sidebar__list">
@@ -781,11 +789,11 @@ export default function DashboardApp() {
                                     <h3 style={{ margin: 0 }}>{session.title}</h3>
                                     <button
                                         type="button"
-                                        className="btn-icon"
+                                        className="btn-icon danger"
                                         style={{ padding: '2px', opacity: 0.6 }}
                                         onClick={(e) => deleteSession(e, session.id)}
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Delete Chat</title><path d="M18 6L6 18M6 6l12 12" /></svg>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.deleteChat')}</title><path d="M18 6L6 18M6 6l12 12" /></svg>
                                     </button>
                                 </div>
                                 <p>{new Date(session.updatedAt).toLocaleDateString()}</p>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarksContext } from '@/contexts/BookmarkContext';
 import type { PageContextPayload } from '@/types/messages';
@@ -17,6 +18,7 @@ const DEFAULT_FORM = {
 export default function PopupApp() {
     const { user, login, logout, loading } = useAuth();
     const { save } = useBookmarksContext();
+    const { t } = useTranslation();
     const [form, setForm] = useState(DEFAULT_FORM);
     const [pageContext, setPageContext] = useState<PageContextPayload | null>(null);
     const [saving, setSaving] = useState(false);
@@ -121,15 +123,15 @@ export default function PopupApp() {
     const handleSave = async (event: React.FormEvent) => {
         event.preventDefault();
         if (!user) {
-            setStatusMessage('Please sign in before saving');
+            setStatusMessage(t('popup.status.signIn'));
             return;
         }
         if (!form.url) {
-            setStatusMessage('Missing URL');
+            setStatusMessage(t('popup.status.missingUrl'));
             return;
         }
         setSaving(true);
-        setStatusMessage('Saving bookmark…');
+        setStatusMessage(t('popup.status.saving'));
         try {
             await save({
                 title: form.title || pageContext?.title || 'Untitled',
@@ -138,10 +140,10 @@ export default function PopupApp() {
                 summary: form.summary || summarizeText(pageContext?.content ?? ''),
                 rawContent: pageContext?.content
             });
-            setStatusMessage('Saved!');
+            setStatusMessage(t('popup.status.saved'));
         } catch (error) {
             console.error(error);
-            setStatusMessage('Failed to save bookmark');
+            setStatusMessage(t('popup.status.failed'));
         } finally {
             setSaving(false);
         }
@@ -150,7 +152,7 @@ export default function PopupApp() {
     return (
         <div className="popup">
             <header className="header">
-                <h1>Save Bookmark</h1>
+                <h1>{t('popup.title')}</h1>
                 <div className="user-menu">
                     {loading ? (
                         <span className="text-xs text-gray-500">...</span>
@@ -168,7 +170,7 @@ export default function PopupApp() {
                         </>
                     ) : (
                         <button type="button" className="text" onClick={login}>
-                            Sign in
+                            {t('app.signIn')}
                         </button>
                     )}
                 </div>
@@ -176,37 +178,37 @@ export default function PopupApp() {
 
             <form className="form" onSubmit={handleSave}>
                 <div className="field">
-                    <label htmlFor="title">Title</label>
+                    <label htmlFor="title">{t('popup.fieldTitle')}</label>
                     <input
                         id="title"
                         type="text"
                         value={form.title}
                         onChange={(event) => setForm({ ...form, title: event.target.value })}
-                        placeholder="Page title"
+                        placeholder={t('popup.placeholderTitle')}
                     />
                 </div>
 
                 <div className="field">
-                    <label htmlFor="url">URL</label>
+                    <label htmlFor="url">{t('popup.fieldUrl')}</label>
                     <input
                         id="url"
                         type="url"
                         value={form.url}
                         onChange={(event) => setForm({ ...form, url: event.target.value })}
-                        placeholder="https://"
+                        placeholder={t('popup.placeholderUrl')}
                     />
                 </div>
 
                 <div className="field">
                     <div className="flex justify-between items-center">
-                        <label htmlFor="tags-input">Tags</label>
+                        <label htmlFor="tags-input">{t('popup.fieldTags')}</label>
                         <button
                             type="button"
                             onClick={handleSmartTags}
                             disabled={tagging}
                             className="text text-xs"
                         >
-                            {tagging ? 'Suggesting...' : 'Auto-suggest'}
+                            {tagging ? t('popup.suggesting') : t('popup.autoSuggest')}
                         </button>
                     </div>
                     <TagInput id="tags-input" value={form.tags} onChange={(next) => setForm({ ...form, tags: next })} />
@@ -214,14 +216,14 @@ export default function PopupApp() {
 
                 <div className="field">
                     <div className="flex justify-between items-center">
-                        <label htmlFor="summary">Summary</label>
+                        <label htmlFor="summary">{t('popup.fieldSummary')}</label>
                         <button
                             type="button"
                             onClick={handleSummarize}
                             disabled={summarizing}
                             className="text text-xs"
                         >
-                            {summarizing ? 'Summarizing...' : 'Auto-summarize'}
+                            {summarizing ? t('popup.summarizing') : t('popup.autoSummarize')}
                         </button>
                     </div>
                     <textarea
@@ -229,7 +231,7 @@ export default function PopupApp() {
                         value={form.summary}
                         onChange={(event) => setForm({ ...form, summary: event.target.value })}
                         rows={3}
-                        placeholder="Add a note or summary..."
+                        placeholder={t('popup.placeholderSummary')}
                     />
                 </div>
 
@@ -237,10 +239,10 @@ export default function PopupApp() {
 
                 <div className="actions">
                     <button type="submit" className="primary" disabled={!user || saving}>
-                        {!user ? 'Sign in to save' : saving ? 'Saving...' : 'Save Bookmark'}
+                        {!user ? t('popup.signInToSave') : saving ? t('popup.saving') : t('popup.save')}
                     </button>
                     <button type="button" className="secondary" onClick={openWorkspace}>
-                        Open Workspace
+                        {t('app.openWorkspace')}
                     </button>
                 </div>
             </form>
