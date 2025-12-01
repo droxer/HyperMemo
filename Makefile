@@ -1,4 +1,4 @@
-.PHONY: frontend-install frontend-dev frontend-build frontend-lint supabase-db supabase-functions clean
+.PHONY: frontend-install frontend-dev frontend-build frontend-lint backend-db backend-functions backend-lint clean
 
 SUPABASE ?= supabase
 
@@ -14,11 +14,14 @@ frontend-build: ## Type-check and produce production build
 frontend-lint: ## Run Biome lint
 	pnpm run lint
 
-supabase-db: ## Apply SQL migrations to the linked Supabase project
+backend-db: ## Apply SQL migrations to the linked Supabase project
 	$(SUPABASE) db push
 
-supabase-functions: ## Deploy Supabase Edge Functions
+backend-functions: ## Deploy Supabase Edge Functions
 	$(SUPABASE) functions deploy bookmarks summaries rag_query notes
+
+backend-lint: ## Run Deno lint on backend functions
+	deno lint supabase/functions
 
 clean: ## Remove build artifacts and caches
 	rm -rf dist

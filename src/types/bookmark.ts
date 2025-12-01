@@ -43,11 +43,17 @@ export interface NoteDocument {
     createdAt: string;
 }
 
+export interface Citation {
+    bookmark: Bookmark;
+    score: number;
+}
+
 export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
     createdAt: string;
+    citations?: Citation[];
 }
 
 export interface ChatSession {

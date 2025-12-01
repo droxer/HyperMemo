@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarksContext } from '@/contexts/BookmarkContext';
@@ -41,6 +41,7 @@ export default function DashboardApp() {
     const [showTagSuggestions, setShowTagSuggestions] = useState(false);
     const [tagSearch, setTagSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
     const activeBookmark = useMemo(
         () => bookmarks.find((b) => b.id === activeBookmarkId),
@@ -61,7 +62,13 @@ export default function DashboardApp() {
 
     const allTags = useMemo(() => {
         const tags = new Set<string>();
-        bookmarks.forEach(b => b.tags?.forEach(t => tags.add(t)));
+        for (const b of bookmarks) {
+            if (b.tags) {
+                for (const t of b.tags) {
+                    tags.add(t);
+                }
+            }
+        }
         return Array.from(tags).sort();
     }, [bookmarks]);
 
@@ -199,7 +206,7 @@ export default function DashboardApp() {
         }
     };
 
-    const handleChatInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChatInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const value = e.target.value;
         setQuestion(value);
 
@@ -221,7 +228,7 @@ export default function DashboardApp() {
         // Remove the @search part from the question
         const words = question.split(' ');
         words.pop(); // Remove the last word (which is the @tag)
-        setQuestion(words.join(' ') + ' '); // Add space for next typing
+        setQuestion(`${words.join(' ')} `); // Add space for next typing
 
         setShowTagSuggestions(false);
         setTagSearch('');
@@ -232,7 +239,7 @@ export default function DashboardApp() {
         setChatTags(chatTags.filter(t => t !== tag));
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (showTagSuggestions && filteredTags.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -256,7 +263,8 @@ export default function DashboardApp() {
             }
         }
 
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
             askAssistant();
         }
     };
@@ -275,13 +283,20 @@ export default function DashboardApp() {
 
     const askAssistant = async () => {
         if (!question.trim() || !activeSessionId) return;
+
+        const currentQuestion = question;
+        setQuestion('');
+        if (chatInputRef.current) {
+            chatInputRef.current.style.height = 'auto';
+        }
+
         setChatLoading(true);
         setChatError(null);
 
         const userMessage: ChatMessage = {
             id: crypto.randomUUID(),
             role: 'user',
-            content: question,
+            content: currentQuestion,
             createdAt: new Date().toISOString()
         };
 
@@ -289,7 +304,7 @@ export default function DashboardApp() {
         const updatedSessions = sessions.map(s => {
             if (s.id === activeSessionId) {
                 // Update title if it's the first message
-                const title = s.messages.length === 0 ? question.slice(0, 30) + (question.length > 30 ? '...' : '') : s.title;
+                const title = s.messages.length === 0 ? currentQuestion.slice(0, 30) + (currentQuestion.length > 30 ? '...' : '') : s.title;
                 return {
                     ...s,
                     title,
@@ -311,14 +326,15 @@ export default function DashboardApp() {
         setSessions(updatedSessions);
 
         try {
-            const response = await draftAnswerFromBookmarks(question, chatTags);
+            const response = await draftAnswerFromBookmarks(currentQuestion, chatTags);
             setCitations(response.matches);
 
             const assistantMessage: ChatMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
                 content: response.answer,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                citations: response.matches
             };
 
             setSessions(prevSessions => prevSessions.map(s =>
@@ -326,8 +342,6 @@ export default function DashboardApp() {
                     ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: new Date().toISOString() }
                     : s
             ));
-
-            setQuestion('');
         } catch (error) {
             console.error('Failed to query RAG backend', error);
             setChatError('Failed to get answer. Please try again.');
@@ -393,6 +407,14 @@ export default function DashboardApp() {
                             key={bookmark.id}
                             className={`nav-item ${activeBookmarkId === bookmark.id ? 'active' : ''}`}
                             onClick={() => handleBookmarkClick(bookmark.id)}
+                            // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    handleBookmarkClick(bookmark.id);
+                                }
+                            }}
                         >
                             <h3>{bookmark.title || 'Untitled'}</h3>
                             <div className="flex-between">
@@ -416,22 +438,36 @@ export default function DashboardApp() {
                 <header className="main__header">
                     <div className="tabs">
                         <button
+                            type="button"
                             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
                             onClick={() => setActiveTab('overview')}
                         >
                             Overview
                         </button>
                         <button
+                            type="button"
                             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
                             onClick={() => setActiveTab('chat')}
                         >
                             Chat
                         </button>
                         <button
-                            className={`tab ${activeTab === 'notes' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('notes')}
+                            type="button"
+                            className="tab"
+                            disabled
+                            style={{ opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                             Notes
+                            <span style={{
+                                fontSize: '0.65rem',
+                                background: '#f1f5f9',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid #e2e8f0',
+                                color: '#64748b',
+                                fontWeight: 600,
+                                textTransform: 'uppercase'
+                            }}>Soon</span>
                         </button>
                     </div>
                     <div className="flex-center">
@@ -461,14 +497,14 @@ export default function DashboardApp() {
                                                 onClick={handleDelete}
                                                 title="Delete bookmark"
                                             >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Delete bookmark</title><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                                             </button>
                                         </div>
                                     </div>
 
                                     <div className="detail-meta">
                                         <a href={activeBookmark.url} target="_blank" rel="noreferrer" className="link-primary flex-center" style={{ gap: '0.5rem' }}>
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>External link</title><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                             {new URL(activeBookmark.url).hostname}
                                         </a>
                                         <span>•</span>
@@ -486,7 +522,7 @@ export default function DashboardApp() {
                                             disabled={isRegenerating}
                                             title="Auto-generate tags"
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 21h5v-5"></path></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Auto-generate tags</title><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
                                             {isRegenerating ? 'Analyzing...' : 'Auto-tag'}
                                         </button>
                                     </div>
@@ -507,7 +543,7 @@ export default function DashboardApp() {
                                             disabled={isRegenerating}
                                             title="Regenerate summary"
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Regenerate summary</title><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                             {isRegenerating ? 'Writing...' : 'Regenerate'}
                                         </button>
                                     </div>
@@ -539,8 +575,29 @@ export default function DashboardApp() {
                                         <div className="chat-avatar">
                                             {message.role === 'user' ? 'You' : 'AI'}
                                         </div>
-                                        <div className="chat-bubble markdown-body">
-                                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                                        <div className="chat-bubble-container">
+                                            <div className="chat-bubble markdown-body">
+                                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                            </div>
+                                            {message.citations && message.citations.length > 0 && (
+                                                <div className="chat-citations">
+                                                    <span className="chat-citations-label">Sources:</span>
+                                                    <div className="chat-citations-list">
+                                                        {message.citations.map((citation) => (
+                                                            <a
+                                                                key={citation.bookmark.id}
+                                                                href={citation.bookmark.url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="citation-chip"
+                                                                title={citation.bookmark.title}
+                                                            >
+                                                                {citation.bookmark.title || 'Untitled'}
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -568,6 +625,7 @@ export default function DashboardApp() {
                                             }}>
                                                 @{tag}
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleRemoveChatTag(tag)}
                                                     style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
                                                 >
@@ -593,7 +651,8 @@ export default function DashboardApp() {
                                         zIndex: 10
                                     }}>
                                         {filteredTags.map((tag, index) => (
-                                            <div
+                                            <button
+                                                type="button"
                                                 key={tag}
                                                 onClick={() => handleTagSelect(tag)}
                                                 style={{
@@ -601,12 +660,16 @@ export default function DashboardApp() {
                                                     cursor: 'pointer',
                                                     fontSize: '0.875rem',
                                                     color: '#334155',
-                                                    background: index === selectedIndex ? '#f1f5f9' : 'white'
+                                                    background: index === selectedIndex ? '#f1f5f9' : 'white',
+                                                    border: 'none',
+                                                    width: '100%',
+                                                    textAlign: 'left',
+                                                    display: 'block'
                                                 }}
                                                 onMouseEnter={() => setSelectedIndex(index)}
                                             >
                                                 {tag}
-                                            </div>
+                                            </button>
                                         ))}
                                         {filteredTags.length === 0 && (
                                             <div style={{ padding: '0.5rem 1rem', color: '#94a3b8', fontSize: '0.875rem' }}>
@@ -617,11 +680,18 @@ export default function DashboardApp() {
                                 )}
 
                                 <div className="chat-input">
-                                    <input
+                                    <textarea
+                                        ref={chatInputRef}
                                         value={question}
-                                        onChange={handleChatInputChange}
-                                        placeholder="Ask about your saved knowledge... (Type @ to filter by tag)"
+                                        onChange={(e) => {
+                                            handleChatInputChange(e);
+                                            e.target.style.height = 'auto';
+                                            e.target.style.height = `${e.target.scrollHeight}px`;
+                                        }}
+                                        placeholder="Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)"
                                         onKeyDown={handleKeyDown}
+                                        rows={1}
+                                        style={{ resize: 'none', overflow: 'hidden' }}
                                     />
                                     <button type="button" className="primary" onClick={askAssistant} disabled={chatLoading}>
                                         {chatLoading ? 'Thinking...' : 'Send'}
@@ -635,8 +705,9 @@ export default function DashboardApp() {
                     {activeTab === 'notes' && (
                         <div className="notes-section">
                             <div className="notes-input-group">
-                                <label className="notes-label">Note Title</label>
+                                <label className="notes-label" htmlFor="note-title">Note Title</label>
                                 <input
+                                    id="note-title"
                                     value={noteTitle}
                                     onChange={(e) => setNoteTitle(e.target.value)}
                                     className="notes-title-input"
@@ -684,7 +755,7 @@ export default function DashboardApp() {
                     <div className="sidebar__header">
                         <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Chats</h1>
                         <button type="button" className="btn-icon" onClick={() => createNewSession()} title="New Chat">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>New Chat</title><path d="M12 5v14M5 12h14" /></svg>
                         </button>
                     </div>
                     <div className="sidebar__list">
@@ -693,15 +764,24 @@ export default function DashboardApp() {
                                 key={session.id}
                                 className={`nav-item ${activeSessionId === session.id ? 'active' : ''}`}
                                 onClick={() => setActiveSessionId(session.id)}
+                                // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        setActiveSessionId(session.id);
+                                    }
+                                }}
                             >
                                 <div className="flex-between">
                                     <h3 style={{ margin: 0 }}>{session.title}</h3>
                                     <button
+                                        type="button"
                                         className="btn-icon"
                                         style={{ padding: '2px', opacity: 0.6 }}
                                         onClick={(e) => deleteSession(e, session.id)}
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Delete Chat</title><path d="M18 6L6 18M6 6l12 12" /></svg>
                                     </button>
                                 </div>
                                 <p>{new Date(session.updatedAt).toLocaleDateString()}</p>

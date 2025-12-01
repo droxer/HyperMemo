@@ -199,7 +199,7 @@ export default function PopupApp() {
 
                 <div className="field">
                     <div className="flex justify-between items-center">
-                        <label>Tags</label>
+                        <label htmlFor="tags-input">Tags</label>
                         <button
                             type="button"
                             onClick={handleSmartTags}
@@ -209,7 +209,7 @@ export default function PopupApp() {
                             {tagging ? 'Suggesting...' : 'Auto-suggest'}
                         </button>
                     </div>
-                    <TagInput value={form.tags} onChange={(next) => setForm({ ...form, tags: next })} />
+                    <TagInput id="tags-input" value={form.tags} onChange={(next) => setForm({ ...form, tags: next })} />
                 </div>
 
                 <div className="field">

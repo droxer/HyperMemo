@@ -312,25 +312,33 @@ body {
 }
 
 .chat-bubble {
-    padding: 1rem 1.25rem;
-    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
     font-size: 1rem;
     line-height: 1.6;
     position: relative;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
 }
 
 .chat-message--user .chat-bubble {
     background: var(--primary);
     color: white;
-    border-bottom-right-radius: 0.25rem;
+    border-bottom-right-radius: 2px;
 }
 
 .chat-message--assistant .chat-bubble {
-    background: white;
-    border: 1px solid var(--border);
-    color: #334155;
-    border-bottom-left-radius: 0.25rem;
+    background: transparent;
+    border: none;
+    color: #1e293b;
+    padding: 0.25rem 0;
+}
+
+.chat-bubble .markdown-body>*:first-child {
+    margin-top: 0;
+}
+
+.chat-bubble .markdown-body>*:last-child {
+    margin-bottom: 0;
 }
 
 .chat-bubble p {
@@ -365,13 +373,17 @@ body {
     padding: 0.25rem;
 }
 
-.chat-input input {
+.chat-input input,
+.chat-input textarea {
     flex: 1;
     border: none;
     padding: 0.75rem;
     font-size: 1rem;
     background: transparent;
     outline: none;
+    font-family: inherit;
+    min-height: 24px;
+    max-height: 200px;
 }
 
 .chat-input button {
@@ -738,4 +750,56 @@ button.ghost {
 
 .tag-input__add {
     display: none;
+}
+
+/* Chat Citations */
+.chat-bubble-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 100%;
+}
+
+.chat-citations {
+    margin-top: 0.25rem;
+    padding-left: 0.5rem;
+}
+
+.chat-citations-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chat-citations-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.citation-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 200px;
+    padding: 0.25rem 0.5rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: #475569;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.2s;
+}
+
+.citation-chip:hover {
+    background: #e2e8f0;
+    color: var(--primary);
+    border-color: #cbd5e1;
 }
