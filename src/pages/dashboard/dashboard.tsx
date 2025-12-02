@@ -39,6 +39,8 @@ export default function DashboardApp() {
     const [question, setQuestion] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
     const [chatError, setChatError] = useState<string | null>(null);
+    const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+    const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
 
     // Feature State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -502,6 +504,71 @@ export default function DashboardApp() {
         );
     };
 
+    const handleCopyMessage = async (messageId: string, content: string) => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setCopiedMessageId(messageId);
+            setTimeout(() => setCopiedMessageId(null), 2000);
+        } catch (error) {
+            console.error('Failed to copy message', error);
+        }
+    };
+
+    const handleRegenerateResponse = async (messageIndex: number) => {
+        if (!activeSessionId || regeneratingMessageId || chatLoading) return;
+
+        const session = sessions.find(s => s.id === activeSessionId);
+        if (!session || messageIndex < 1) return;
+
+        // Get the user message before the assistant message
+        const userMessage = session.messages[messageIndex - 1];
+        if (!userMessage || userMessage.role !== 'user') return;
+
+        setRegeneratingMessageId(session.messages[messageIndex].id);
+        setChatLoading(true);
+        setChatError(null);
+
+        try {
+            // Remove the assistant message we're regenerating
+            const updatedMessages = session.messages.slice(0, messageIndex);
+            setSessions(prevSessions => prevSessions.map(s =>
+                s.id === activeSessionId
+                    ? { ...s, messages: updatedMessages, updatedAt: new Date().toISOString() }
+                    : s
+            ));
+
+            // Get the tags from the original user message if any
+            const response = await draftAnswerFromBookmarks(userMessage.content, chatTags);
+            setCitations(response.matches);
+
+            const assistantMessage: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: response.answer,
+                createdAt: new Date().toISOString(),
+                citations: response.matches
+            };
+
+            setSessions(prevSessions => prevSessions.map(s =>
+                s.id === activeSessionId
+                    ? { ...s, messages: [...updatedMessages, assistantMessage], updatedAt: new Date().toISOString() }
+                    : s
+            ));
+        } catch (error) {
+            console.error('Failed to regenerate response', error);
+            setChatError('Failed to regenerate response. Please try again.');
+            // Restore the original messages on error
+            setSessions(prevSessions => prevSessions.map(s =>
+                s.id === activeSessionId
+                    ? { ...s, messages: session.messages, updatedAt: new Date().toISOString() }
+                    : s
+            ));
+        } finally {
+            setRegeneratingMessageId(null);
+            setChatLoading(false);
+        }
+    };
+
     const askAssistant = async (forcedSession?: ChatSession) => {
         const targetSessionId = forcedSession?.id || activeSessionId;
         if (!question.trim() || !targetSessionId) return;
@@ -700,7 +767,12 @@ export default function DashboardApp() {
                         <button
                             type="button"
                             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('overview')}
+                            onClick={() => {
+                                setActiveTab('overview');
+                                if (filteredBookmarks.length > 0 && !activeBookmarkId) {
+                                    handleBookmarkClick(filteredBookmarks[0].id);
+                                }
+                            }}
                         >
                             {t('tabs.overview')}
                         </button>
@@ -717,13 +789,15 @@ export default function DashboardApp() {
                                     return;
                                 }
                                 setActiveTab('chat');
+                                setActiveBookmarkId(null);
+                                setDetailedBookmark(null);
                             }}
                         >
                             {t('tabs.chat')}
                             {!isPro && (
-                                <span className="subscription-badge subscription-badge--pro" style={{ marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.25rem 0.625rem' }}>
-                                    <span className="subscription-badge__icon">⭐</span>
-                                    <span className="subscription-badge__text">Pro</span>
+                                <span className="tab-badge tab-badge--pro">
+                                    <span className="tab-badge__icon">⭐</span>
+                                    <span className="tab-badge__text">Pro</span>
                                 </span>
                             )}
                         </button>
@@ -731,10 +805,9 @@ export default function DashboardApp() {
                             type="button"
                             className="tab"
                             disabled
-                            style={{ opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                             {t('tabs.notes')}
-                            <span className="badge badge-subtle">{t('tabs.comingSoon')}</span>
+                            <span className="tab-badge tab-badge--subtle">{t('tabs.comingSoon')}</span>
                         </button>
                     </div>
                     <div className="flex-center">
@@ -883,7 +956,7 @@ export default function DashboardApp() {
                     {activeTab === 'chat' && (
                         <div className="chat-section">
                             <div className="chat-window">
-                                {messages.map((message) => (
+                                {messages.map((message, index) => (
                                     <div key={message.id} className={`chat-message chat-message--${message.role}`}>
                                         <div className="chat-avatar">
                                             {message.role === 'user' ? t('chat.you') : t('chat.ai')}
@@ -892,6 +965,38 @@ export default function DashboardApp() {
                                             <div className="chat-bubble markdown-body">
                                                 <ReactMarkdown>{message.content}</ReactMarkdown>
                                             </div>
+                                            {message.role === 'assistant' && (
+                                                <div className="chat-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="chat-action-btn"
+                                                        onClick={() => handleCopyMessage(message.id, message.content)}
+                                                        title="Copy response"
+                                                    >
+                                                        {copiedMessageId === message.id ? (
+                                                            <>
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Copied</title><polyline points="20 6 9 17 4 12" /></svg>
+                                                                <span>Copied!</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Copy</title><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                                                <span>Copy</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="chat-action-btn"
+                                                        onClick={() => handleRegenerateResponse(index)}
+                                                        disabled={regeneratingMessageId === message.id}
+                                                        title="Regenerate response"
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>Regenerate</title><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
+                                                        <span>{regeneratingMessageId === message.id ? 'Regenerating...' : 'Regenerate'}</span>
+                                                    </button>
+                                                </div>
+                                            )}
                                             {message.citations && message.citations.length > 0 && (
                                                 <div className="chat-citations">
                                                     <span className="chat-citations-label">{t('chat.sources')}</span>

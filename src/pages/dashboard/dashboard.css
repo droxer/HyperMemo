@@ -178,24 +178,88 @@ body {
 }
 
 .tabs {
-    display: flex;
-    gap: 1rem;
+    display: inline-flex;
+    gap: 0.25rem;
+    background: var(--bg-subtle);
+    padding: 0.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
 }
 
 .tab {
-    background: none;
+    display: flex;
+    align-items: center;
+    background: transparent;
     border: none;
-    padding: 0.5rem 0;
-    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    position: relative;
+}
+
+.tab:hover:not(:disabled):not(.active) {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.03);
 }
 
 .tab.active {
     color: var(--primary);
-    border-bottom-color: var(--primary);
+    background: var(--bg-main);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+}
+
+.tab:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+}
+
+.tab-badge--pro {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: white;
+}
+
+.tab-badge--subtle {
+    background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+    color: white;
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+    border: none;
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+    }
+    50% {
+        box-shadow: 0 2px 10px rgba(139, 92, 246, 0.5);
+    }
+}
+
+.tab-badge__icon {
+    font-size: 0.75em;
+    line-height: 1;
+}
+
+.tab-badge__text {
+    line-height: 1;
 }
 
 .main__content {
@@ -329,10 +393,10 @@ body {
 
 .chat-message {
     display: flex;
-    gap: 1rem;
-    max-width: 85%;
+    gap: 0.75rem;
+    max-width: 80%;
     animation: fadeIn 0.3s ease-out;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 @keyframes fadeIn {
@@ -357,48 +421,66 @@ body {
 }
 
 .chat-avatar {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.875rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
     flex-shrink: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
 }
 
 .chat-message--user .chat-avatar {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
 .chat-message--assistant .chat-avatar {
     background: var(--bg-main);
     color: var(--primary);
-    border: 1px solid var(--border);
+    border-color: var(--border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.chat-message:hover .chat-avatar {
+    transform: scale(1.05);
+}
+
+.chat-message--user:hover .chat-avatar {
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.chat-message--assistant:hover .chat-avatar {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
 }
 
 .chat-bubble {
-    padding: 1rem 1.5rem;
-    border-radius: 1.5rem;
-    font-size: 1rem;
-    line-height: 1.5;
+    padding: 0.875rem 1.125rem;
+    border-radius: 1.125rem;
+    font-size: 0.9375rem;
+    line-height: 1.6;
     position: relative;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .chat-message--user .chat-bubble {
     background: var(--primary);
     color: white;
-    border-bottom-right-radius: 0.25rem;
+    border-bottom-right-radius: 0.375rem;
 }
 
 .chat-message--assistant .chat-bubble {
-    background: var(--bg-main);
-    border: 1px solid var(--border);
+    background: var(--bg-subtle);
     color: var(--text-primary);
-    border-bottom-left-radius: 0.25rem;
+    border-bottom-left-radius: 0.375rem;
 }
 
 .chat-bubble .markdown-body>*:first-child {
@@ -409,8 +491,54 @@ body {
     margin-bottom: 0;
 }
 
-.chat-bubble p {
-    margin: 0;
+.chat-bubble .markdown-body p {
+    margin: 0.5rem 0;
+}
+
+.chat-bubble .markdown-body p:first-child {
+    margin-top: 0;
+}
+
+.chat-bubble .markdown-body p:last-child {
+    margin-bottom: 0;
+}
+
+.chat-bubble .markdown-body ul,
+.chat-bubble .markdown-body ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.chat-bubble .markdown-body li {
+    margin: 0.25rem 0;
+}
+
+.chat-bubble .markdown-body code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+.chat-message--user .chat-bubble .markdown-body code {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.chat-bubble .markdown-body pre {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+}
+
+.chat-message--user .chat-bubble .markdown-body pre {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.chat-bubble .markdown-body pre code {
+    background: none;
+    padding: 0;
 }
 
 /* Typing Indicator */
@@ -460,47 +588,52 @@ body {
     margin-top: 1rem;
     background: var(--bg-main);
     border: 1px solid var(--border);
-    border-radius: 1rem;
-    padding: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    transition: border-color 0.15s;
 }
 
 .chat-input-container:focus-within {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .chat-tags {
-    padding: 0.5rem 0.5rem 0;
-    margin-bottom: 0.5rem;
+    padding: 0 0 0.5rem 0;
 }
 
 .chat-input {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.5rem;
-    padding: 0.25rem;
 }
 
 .chat-input input,
 .chat-input textarea {
     flex: 1;
     border: none;
-    padding: 0.75rem;
-    font-size: 1rem;
+    padding: 0.5rem;
+    font-size: 0.9375rem;
     background: transparent;
     outline: none;
     font-family: inherit;
     min-height: 24px;
     max-height: 200px;
+    resize: none;
+    color: var(--text-primary);
+}
+
+.chat-input textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
 }
 
 .chat-input button {
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
     font-weight: 600;
-    transition: all 0.2s;
+    font-size: 0.875rem;
+    transition: all 0.15s;
+    flex-shrink: 0;
 }
 
 .chat-input button:disabled {
@@ -1002,42 +1135,119 @@ button.ghost:hover {
     max-width: 100%;
 }
 
+.chat-actions {
+    display: flex;
+    gap: 0.375rem;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.chat-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.chat-action-btn:hover:not(:disabled) {
+    background: var(--bg-main);
+    color: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.chat-action-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.chat-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.chat-action-btn svg {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.chat-action-btn:hover:not(:disabled) svg {
+    opacity: 1;
+}
+
 .chat-citations {
-    margin-top: 0.25rem;
-    padding-left: 0.25rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    .chat-citations {
+        background: rgba(255, 255, 255, 0.02);
+    }
 }
 
 .chat-citations-label {
-    font-size: 0.7rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.625rem;
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.375rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
+.chat-citations-label::before {
+    content: "📚";
+    font-size: 0.875em;
+    opacity: 0.7;
+}
+
 .chat-citations-list {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 0.5rem;
 }
 
 .citation-chip {
     display: inline-flex;
     align-items: center;
-    max-width: 240px;
-    padding: 0.375rem 0.75rem;
-    background: var(--bg-subtle);
+    gap: 0.5rem;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.875rem;
+    background: var(--bg-main);
     border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    font-size: 0.8rem;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
     text-decoration: none;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     font-weight: 500;
+    position: relative;
+    overflow: hidden;
+}
+
+.citation-chip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--primary);
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
 .citation-title {
@@ -1045,21 +1255,32 @@ button.ghost:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+    flex: 1;
+    display: block;
 }
 
 .citation-chip:hover {
-    background: var(--bg-main);
+    background: var(--bg-subtle);
     color: var(--primary);
     border-color: var(--primary);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+    transform: translateY(-2px);
+}
+
+.citation-chip:hover::after {
+    opacity: 1;
 }
 
 .citation-chip::before {
-    content: "📄";
-    margin-right: 0.375rem;
-    font-size: 0.9em;
-    opacity: 0.7;
+    content: "🔖";
+    font-size: 1em;
+    opacity: 0.6;
+    flex-shrink: 0;
+    transition: opacity 0.2s ease;
+}
+
+.citation-chip:hover::before {
+    opacity: 1;
 }
 
 /* Badges */
