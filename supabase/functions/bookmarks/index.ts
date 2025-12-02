@@ -65,16 +65,6 @@ type TagAssociationWithBookmark = {
     tags?: Tag[] | Tag | null;
 };
 
-function normalizeTagResult<T>(value: T[] | T | null | undefined): T[] {
-    if (Array.isArray(value)) {
-        return value;
-    }
-    if (value) {
-        return [value];
-    }
-    return [];
-}
-
 async function syncBookmarkTags(bookmarkId: string, userId: string, tagNames: string[]): Promise<void> {
     // Get current tag associations
     const { data: currentAssociations } = await supabaseAdmin
