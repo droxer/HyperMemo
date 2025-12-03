@@ -67,7 +67,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     </button>
                 </div>
                 <div className="modal-content">
-                    <p>{message}</p>
+                    <p style={{ whiteSpace: 'pre-line' }}>{message}</p>
                 </div>
                 <div className="modal-footer">
                     <button type="button" className="ghost" onClick={onClose} disabled={isLoading}>{cancelLabel}</button>

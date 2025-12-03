@@ -113,6 +113,24 @@ export default function DashboardApp() {
         isDangerous: false
     });
 
+    // Profile Menu State
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close profile menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        if (isProfileMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isProfileMenuOpen]);
+
     const openConfirm = (title: string, message: string, onConfirm: () => void, isDangerous = false) => {
         setModalConfig({
             isOpen: true,
@@ -325,9 +343,15 @@ export default function DashboardApp() {
 
     const handleDelete = () => {
         if (!activeBookmarkId) return;
+
+        const bookmarkToDelete = bookmarks.find(b => b.id === activeBookmarkId);
+        if (!bookmarkToDelete) return;
+
+        const confirmMessage = `Are you sure you want to delete this bookmark?\n\n"${bookmarkToDelete.title || 'Untitled'}"`;
+
         openConfirm(
             t('dashboard.deleteBookmark'),
-            'Are you sure you want to delete this bookmark?',
+            confirmMessage,
             async () => {
                 const bookmarkIdToDelete = activeBookmarkId;
 
@@ -834,19 +858,50 @@ export default function DashboardApp() {
                         >
                             <SubscriptionBadge subscription={subscription} />
                         </button>
-                        {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
-                            <img
-                                src={user.user_metadata.avatar_url || user.user_metadata.picture}
-                                alt={user.email || 'User'}
-                                className="user-avatar"
-                                title={user.email}
-                            />
-                        ) : (
-                            <span className="user-email">{user.email}</span>
-                        )}
-                        <button type="button" className="ghost btn-sm" onClick={logout}>
-                            {t('app.signOut')}
-                        </button>
+                        <div className="profile-menu-container" ref={profileMenuRef}>
+                            <button
+                                type="button"
+                                className="profile-button"
+                                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                title={user.email || 'Profile'}
+                            >
+                                {user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
+                                    <img
+                                        src={user.user_metadata.avatar_url || user.user_metadata.picture}
+                                        alt={user.email || 'User'}
+                                        className="user-avatar"
+                                    />
+                                ) : (
+                                    <div className="user-avatar-placeholder">
+                                        {user.email?.charAt(0).toUpperCase() || 'U'}
+                                    </div>
+                                )}
+                            </button>
+                            {isProfileMenuOpen && (
+                                <div className="profile-dropdown">
+                                    <div className="profile-dropdown-header">
+                                        <div className="profile-dropdown-email">{user.email}</div>
+                                    </div>
+                                    <div className="profile-dropdown-divider" />
+                                    <button
+                                        type="button"
+                                        className="profile-dropdown-item"
+                                        onClick={() => {
+                                            setIsProfileMenuOpen(false);
+                                            logout();
+                                        }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <title>Sign Out</title>
+                                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                            <polyline points="16 17 21 12 16 7" />
+                                            <line x1="21" y1="12" x2="9" y2="12" />
+                                        </svg>
+                                        {t('app.signOut')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 

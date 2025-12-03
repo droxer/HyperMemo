@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2025-12-03
+
+### Added
+- **LLM-based Reranking**: RAG query now uses AI to rerank search results for better relevance
+- **Embedded Citation Links**: AI responses now include clickable links to source bookmarks
+- **HTML-to-Markdown Conversion**: Original content is now parsed from HTML and converted to clean markdown format using Turndown
+- **Profile Dropdown Menu**: Sign-out moved to a polished dropdown menu accessible from profile avatar
+- **Enhanced Delete Confirmation**: Bookmark deletion now shows the bookmark title in confirmation dialog
+
+### Changed
+- **Subscription Model**: AI summaries and smart tags are now available to all users (free feature)
+- **Subscription UI**: Updated feature list - renamed "RAG Chat" to "AI Chat", "Smart Tags" to "AI Tags", removed "Export to Docs", added "AI Notes"
+- **Modal Design**: Completely redesigned confirmation modals with better spacing, animations, and visual hierarchy
+- **Delete Button**: Enhanced hover effects with red tint, border, and scale animation
+- **Google Sign-in**: Polished auth page design with logo and official Google button styling
+
+### Fixed
+- **Citation Rendering**: Fixed issue where AI response citations were not clickable
+- **Dark Mode**: Improved button hover effects to work consistently in both light and dark themes
+- **Layout Shift**: Added transparent borders to prevent layout shift on hover states
+
 ## [0.0.4] - 2025-12-03
 
 ### Added
