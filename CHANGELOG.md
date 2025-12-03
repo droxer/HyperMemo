@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2025-12-04
+
+### Added
+- **Smart Content Extraction**: Implemented backend-side content fetching using `@mozilla/readability` to strip ads and navigation, ensuring high-quality content capture.
+- **Enhanced Markdown Rendering**: Added `remark-gfm` support for tables and task lists, plus comprehensive styling for all markdown elements.
+- **Smart Refetch**: The "Refetch" button now triggers the robust backend extraction pipeline instead of a simple client-side fetch.
+
+### Changed
+- **UI Polish**: Enhanced "Pro" and "AI" badges with vibrant gradients and depth.
+- **Dashboard Consistency**: Unified styling for Tags, Summary, and Content sections with consistent card designs.
+- **Icons**: Updated the "Refetch" icon to a download symbol for better semantic meaning.
+- **Loading States**: Improved content loading experience with a centered spinner in the content area.
+
 ## [0.0.5] - 2025-12-03
 
 ### Added
