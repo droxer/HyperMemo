@@ -28,7 +28,9 @@ export function tagsPrompt(title: string, content: string): string {
 export function ragPrompt(question: string, sources: string): string {
     return [
         'You are HyperMemo. Answer the question using ONLY the provided sources.',
-        'Cite sources explicitly using [S#].',
+        'When citing sources, use markdown links with the source title as the link text and the URL as the destination.',
+        'Format citations as: [Source Title](URL)',
+        'Do NOT use [S#] format. Instead, embed the actual source title as a clickable link.',
         `Question: ${question}`,
         'Sources:',
         sources

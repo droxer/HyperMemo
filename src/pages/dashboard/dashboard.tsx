@@ -21,6 +21,7 @@ import { getUserSubscription } from '@/services/subscriptionService';
 import { ApiError } from '@/services/apiClient';
 import { chromeStorage } from '@/utils/chrome';
 
+
 export default function DashboardApp() {
     const { user, login, logout, loading } = useAuth();
     const { bookmarks, save, remove } = useBookmarksContext();
@@ -1007,7 +1008,13 @@ export default function DashboardApp() {
                                         </div>
                                         <div className="chat-bubble-container">
                                             <div className="chat-bubble markdown-body">
-                                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                                <ReactMarkdown
+                                                    components={{
+                                                        a: ({ node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />
+                                                    }}
+                                                >
+                                                    {message.content}
+                                                </ReactMarkdown>
                                             </div>
                                             {message.role === 'assistant' && (
                                                 <div className="chat-actions">

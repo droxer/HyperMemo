@@ -39,7 +39,9 @@ type RagMatch = {
  */
 function buildSourcesText(matches: RagMatch[]): string {
     return matches
-        .map((match, index) => `[S${index + 1}] ${match.bookmark.title} — ${match.bookmark.summary}`)
+        .map((match, index) => {
+            return `[S${index + 1}] Title: ${match.bookmark.title}\nURL: ${match.bookmark.url}\nSummary: ${match.bookmark.summary}\n`;
+        })
         .join('\n');
 }
 
