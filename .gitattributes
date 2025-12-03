@@ -1,5 +1,4 @@
 # Git LFS Configuration
-
 # Track all images in Screenshots directory with Git LFS
 Screenshots/*.png filter=lfs diff=lfs merge=lfs -text
 Screenshots/*.jpg filter=lfs diff=lfs merge=lfs -text
@@ -7,3 +6,7 @@ Screenshots/*.jpeg filter=lfs diff=lfs merge=lfs -text
 Screenshots/*.gif filter=lfs diff=lfs merge=lfs -text
 Screenshots/*.webp filter=lfs diff=lfs merge=lfs -text
 Screenshots/*.svg filter=lfs diff=lfs merge=lfs -text
+screenshots/AI[[:space:]]Chat.png filter=lfs diff=lfs merge=lfs -text
+screenshots/Bookmarks.jpg filter=lfs diff=lfs merge=lfs -text
+screenshots/Landing.jpg filter=lfs diff=lfs merge=lfs -text
+screenshots/Save[[:space:]]Bookmark.jpg filter=lfs diff=lfs merge=lfs -text
