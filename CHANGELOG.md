@@ -10,6 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.6] - 2025-12-04
 
 ### Added
+- **Chat UI Overhaul**: Modernized the AI chat interface with a clean, flat design ("twink" style) consistent with the app's aesthetic.
+- **User Avatars**: Chat now displays the user's Google profile picture instead of a generic initial.
+- **Image Processing Script**: Added `scripts/resize_images.py` to automate screenshot resizing and formatting for the store.
+
+### Changed
+- **AI Avatar**: Updated the AI assistant avatar to a modern sparkle icon with a subtle, clean design.
+- **Dark Mode**: Refined chat bubbles and avatars to look perfect in dark mode, using specific border and background overrides.
+- **Screenshots**: Updated store screenshots to 1280x800 JPEG format.
+
+### Fixed
+- **Accessibility**: Added missing titles to SVGs in the dashboard to pass accessibility checks.
+
+### Added (Previous)
 - **Smart Content Extraction**: Implemented backend-side content fetching using `@mozilla/readability` to strip ads and navigation, ensuring high-quality content capture.
 - **Enhanced Markdown Rendering**: Added `remark-gfm` support for tables and task lists, plus comprehensive styling for all markdown elements.
 - **Smart Refetch**: The "Refetch" button now triggers the robust backend extraction pipeline instead of a simple client-side fetch.
