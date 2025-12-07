@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
@@ -23,6 +24,92 @@ import { getUserSubscription } from '@/services/subscriptionService';
 import { ApiError } from '@/services/apiClient';
 import { chromeStorage } from '@/utils/chrome';
 
+// Helper to transform text with citation patterns into React nodes
+function transformTextWithCitations(text: string, citations?: RagMatch[]): React.ReactNode {
+    if (!text.includes('[')) return text;
+
+    const parts = text.split(/(\[\d+\])/g);
+    if (parts.length === 1) return text;
+
+    return parts.map((part, index) => {
+        const match = part.match(/^\[(\d+)\]$/);
+        if (match && citations) {
+            const citationIndex = Number.parseInt(match[1], 10) - 1;
+            const citation = citations[citationIndex];
+            if (citation) {
+                return (
+                    <a
+                        key={`cite-${index}-${citation.bookmark.id}`}
+                        href={citation.bookmark.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-citation"
+                    >
+                        [{match[1]}]
+                        <span className="citation-tooltip">{citation.bookmark.title}</span>
+                    </a>
+                );
+            }
+        }
+        return part || null;
+    });
+}
+
+// Component to render message content with inline citations
+function MessageContent({ content, citations }: { content: string; citations?: RagMatch[] }) {
+    // Create custom components that process citations in text nodes
+    const components = useMemo(() => ({
+        a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => (
+            <a href={href} {...props} target="_blank" rel="noreferrer">{children}</a>
+        ),
+        p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: unknown }) => {
+            const processChildren = (child: React.ReactNode): React.ReactNode => {
+                if (typeof child === 'string') {
+                    return transformTextWithCitations(child, citations);
+                }
+                return child;
+            };
+            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
+            return <p {...props}>{processed}</p>;
+        },
+        li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement> & { node?: unknown }) => {
+            const processChildren = (child: React.ReactNode): React.ReactNode => {
+                if (typeof child === 'string') {
+                    return transformTextWithCitations(child, citations);
+                }
+                return child;
+            };
+            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
+            return <li {...props}>{processed}</li>;
+        },
+        strong: ({ children, ...props }: React.HTMLAttributes<HTMLElement> & { node?: unknown }) => {
+            const processChildren = (child: React.ReactNode): React.ReactNode => {
+                if (typeof child === 'string') {
+                    return transformTextWithCitations(child, citations);
+                }
+                return child;
+            };
+            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
+            return <strong {...props}>{processed}</strong>;
+        },
+        em: ({ children, ...props }: React.HTMLAttributes<HTMLElement> & { node?: unknown }) => {
+            const processChildren = (child: React.ReactNode): React.ReactNode => {
+                if (typeof child === 'string') {
+                    return transformTextWithCitations(child, citations);
+                }
+                return child;
+            };
+            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
+            return <em {...props}>{processed}</em>;
+        }
+    }), [citations]);
+
+    return (
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+            {content}
+        </ReactMarkdown>
+    );
+}
 
 export default function DashboardApp() {
     const { user, login, logout, loading } = useAuth();
@@ -1138,13 +1225,7 @@ export default function DashboardApp() {
                                         </div>
                                         <div className="chat-bubble-container">
                                             <div className="chat-bubble markdown-body">
-                                                <ReactMarkdown
-                                                    components={{
-                                                        a: ({ node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />
-                                                    }}
-                                                >
-                                                    {message.content}
-                                                </ReactMarkdown>
+                                                <MessageContent content={message.content} citations={message.citations} />
                                             </div>
                                             {message.role === 'assistant' && (
                                                 <div className="chat-actions">

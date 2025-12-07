@@ -28,9 +28,12 @@ export function tagsPrompt(title: string, content: string): string {
 export function ragPrompt(question: string, sources: string): string {
     return [
         'You are HyperMemo. Answer the question using ONLY the provided sources.',
-        'When citing sources, use markdown links with the source title as the link text and the URL as the destination.',
-        'Format citations as: [Source Title](URL)',
-        'Do NOT use [S#] format. Instead, embed the actual source title as a clickable link.',
+        'IMPORTANT: When citing sources, use numbered superscript citations in the format [1], [2], etc.',
+        'Place citations inline immediately after the relevant claim or fact.',
+        'The numbers correspond to the source order [S1], [S2], etc. in the provided sources.',
+        'Example: "React uses a virtual DOM for efficient updates [1]. Vue also implements reactivity [2]."',
+        'Do NOT include the full URL or source title inline - just use the number in brackets.',
+        'You may cite multiple sources for one claim: [1][2]',
         `Question: ${question}`,
         'Sources:',
         sources

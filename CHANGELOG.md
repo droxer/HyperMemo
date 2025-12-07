@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8] - 2025-12-07
+
+### Changed
+- **Citation Style**: Redesigned inline citations to Wikipedia-style bracketed links `[1]`, `[2]` with hover tooltips showing source titles
+- **Citation Container**: Enhanced the sources section below AI responses with blue gradient background and improved visual contrast
+- **RAG Prompt**: Updated AI to generate numbered citations instead of inline markdown links for cleaner formatting
+
+### Fixed
+- **Citation Rendering**: Fixed issue where `[1]`, `[2]` citation markers were not clickable - now properly linked to source bookmarks
+
 ## [0.0.6] - 2025-12-04
 
 ### Added

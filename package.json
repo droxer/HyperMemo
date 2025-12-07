@@ -1,6 +1,6 @@
 {
     "name": "hypermemo",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "private": true,
     "description": "HyperMemo Chrome extension: smart bookmarking, RAG-powered recall, and Google Docs export.",
     "type": "module",

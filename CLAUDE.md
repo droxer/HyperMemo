@@ -29,6 +29,7 @@ make frontend-build     # Type-check + production build (or: pnpm run build)
 make frontend-lint      # Run Biome linter (or: pnpm run lint)
 make frontend-test      # Run Vitest tests (or: pnpm vitest run)
 pnpm vitest            # Run tests in watch mode
+pnpm vitest src/services/bookmarkService.test.ts  # Run a single test file
 ```
 
 ### Backend (Supabase Edge Functions)
@@ -37,6 +38,7 @@ make backend-db         # Apply SQL migrations (or: supabase db push)
 make backend-functions  # Deploy all Edge Functions
 make backend-lint       # Run Deno linter (or: deno lint supabase/functions)
 make backend-test       # Run Deno tests (or: deno test supabase/functions)
+deno test supabase/functions/_shared/bookmarks_test.ts  # Run a single test file
 ```
 
 ### Release
@@ -57,14 +59,11 @@ pnpm run stats         # View admin statistics (tsx scripts/admin-stats.ts)
 - **`src/pages/dashboard/`** - Full dashboard with chat and note builder
 - **`src/background/`** - Service worker for Chrome runtime APIs
 - **`src/content/`** - Content scripts injected into web pages for scraping
-- **`src/services/`** - API client and service layer (bookmarks, tags, RAG, auth, subscriptions)
+- **`src/services/`** - API client and service layer (see Service Layer pattern below)
 - **`src/contexts/`** - React contexts (AuthContext, BookmarkContext)
-- **`src/components/`** - Reusable React components
-- **`src/types/`** - TypeScript type definitions
-- **`src/utils/`** - Shared utilities
-- **`src/i18n/`** - Internationalization setup
+- **`src/components/`**, **`src/types/`**, **`src/utils/`**, **`src/i18n/`** - Components, types, utilities, i18n
 
-**Path Aliases:** Use `@/components/*`, `@/services/*`, `@/contexts/*`, `@/hooks/*`, `@/types/*`, `@/utils/*`
+**Path Aliases:** `@/components/*`, `@/services/*`, `@/contexts/*`, `@/hooks/*`, `@/types/*`, `@/utils/*`
 
 ### Backend Structure (Supabase Edge Functions)
 All Edge Functions are in `supabase/functions/`:
@@ -72,6 +71,7 @@ All Edge Functions are in `supabase/functions/`:
 - **`summaries/`** - AI-powered summary and tag generation endpoints
 - **`tags/`** - CRUD operations for tags with bookmark counts
 - **`rag_query/`** - Hybrid semantic + tag-based search using RAG
+- **`process-bookmark/`** - Background processing for bookmark content extraction and embeddings
 - **`notes/`** - Placeholder for Google Docs export (not implemented)
 - **`_shared/`** - Shared utilities across all functions:
   - `ai.ts` - OpenAI integration
@@ -110,39 +110,29 @@ See `supabase/migrations/` for full schema.
 
 ### Key Architectural Patterns
 
-**1. Dual Testing Environments:**
-- Frontend: Vitest with jsdom (`src/**/*.{test,spec}.{ts,tsx}`)
-- Backend: Deno test (`supabase/functions/**/*test.ts`)
-- Pre-commit hook runs both test suites
+**1. Dual Environments (Testing & Linting):**
+- Frontend: Vitest + Biome for `src/**/*.{ts,tsx}`
+- Backend: Deno test + Deno lint for `supabase/functions/**/*.ts`
+- Pre-commit hook (Husky + lint-staged) runs appropriate tools based on file path
 
-**2. Dual Linting:**
-- Frontend: Biome (`src/**/*.{ts,tsx}`)
-- Backend: Deno lint (`supabase/functions/**/*.{ts,tsx}`)
-- Lint-staged runs appropriate linter based on file path
-
-**3. Service Layer:**
-Frontend services abstract Supabase Edge Function calls:
-- `apiClient.ts` - Base HTTP client with auth headers
-- `bookmarkService.ts` - Bookmark CRUD operations
-- `tagService.ts` - Tag CRUD operations
-- `ragService.ts` - RAG query interface
-- `subscriptionService.ts` - Subscription checks and management
+**2. Service Layer:**
+Frontend services in `src/services/` abstract Edge Function calls via `apiClient.ts`:
+- `bookmarkService.ts`, `tagService.ts`, `ragService.ts`, `subscriptionService.ts`
 - `auth/chromeIdentity.ts` - Google OAuth via Chrome Identity API
 
-**4. Subscription System:**
+**3. Subscription System:**
 - Free tier: 50 bookmarks, 5 tags per bookmark
 - Pro tier: Unlimited bookmarks and tags
 - Feature gating in `subscriptionService.ts`
 - Admin CLI tools in `scripts/` for subscription management
-- See [docs/SUBSCRIPTION_SYSTEM.md](docs/SUBSCRIPTION_SYSTEM.md) (if exists)
 
-**5. RAG Implementation:**
+**4. RAG Implementation:**
 - Embeddings computed via OpenAI on bookmark creation
 - Hybrid scoring: semantic similarity (cosine) + tag matching boost
 - In-memory ranking (no vector database yet, loads all user bookmarks)
 - Top 5 results by default with source attribution
 
-**6. Chrome Extension Architecture:**
+**5. Chrome Extension Architecture:**
 - Manifest v3 with service worker background script
 - Two HTML pages: popup (quick capture) and dashboard (full UI)
 - Content scripts for page content extraction
@@ -177,18 +167,17 @@ ANON_UID=...                 # Fallback user for local dev
 
 **When working with Edge Functions:**
 - Import shared utilities from `../_shared/` (relative imports)
-- Use `deno.json` for import maps (npm: prefix for Node modules)
+- Use `deno.json` for import maps: `jsr:` for Deno packages, `npm:` for Node modules
 - All database queries MUST filter by `user_id` for security
 - Always use `requireUserId(req)` for authentication
 - Use `jsonResponse()` helper to ensure CORS headers
 - Test with `deno test supabase/functions` before deploying
 
 **When working with Frontend:**
-- Use path aliases (`@/services/...`) not relative paths
+- Use path aliases (`@/...`) not relative paths for src imports
 - All API calls go through service layer, not direct Supabase client
-- React contexts provide auth state and bookmark data
 - Chrome APIs accessed via `chrome.*` (types from `@types/chrome`)
-- Test components with Vitest using jsdom environment
+- Biome allows both `let` and `const` (`useConst: off`)
 
 **Chrome Extension Testing:**
 1. Run `make frontend-dev` to start Vite dev server
