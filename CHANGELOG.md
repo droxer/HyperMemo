@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.8] - 2025-12-07
 
+### Added
+- **Streaming Responses**: AI responses now stream in real-time using Server-Sent Events (SSE), providing a much better user experience with text appearing progressively
+- **Conversation Context**: AI chat now maintains conversation history within a session, enabling natural follow-up questions and multi-turn conversations
+
 ### Changed
 - **Citation Style**: Redesigned inline citations to Wikipedia-style bracketed links `[1]`, `[2]` with hover tooltips showing source titles
 - **Citation Container**: Enhanced the sources section below AI responses with blue gradient background and improved visual contrast

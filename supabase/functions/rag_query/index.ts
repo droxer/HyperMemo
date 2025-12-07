@@ -1,13 +1,20 @@
-import { handleCors } from '../_shared/cors.ts';
+import { handleCors, corsHeaders } from '../_shared/cors.ts';
 import { jsonResponse } from '../_shared/response.ts';
 import { requireUserId, supabaseAdmin } from '../_shared/supabaseClient.ts';
 import { readJson } from '../_shared/request.ts';
-import { embedText, generateContent } from '../_shared/ai.ts';
+import { embedText, streamContent, generateContent } from '../_shared/ai.ts';
 import { ragPrompt, rerankPrompt } from '../_shared/prompts.ts';
+
+type ConversationMessage = {
+    role: 'user' | 'assistant';
+    content: string;
+};
 
 type RagPayload = {
     question?: string;
     tags?: string[];
+    conversation_history?: ConversationMessage[];
+    stream?: boolean;
 };
 
 type RpcMatch = {
@@ -162,23 +169,21 @@ async function rerankBookmarksWithLLM(
 }
 
 /**
- * Main RAG query handler
+ * Main RAG query handler (non-streaming)
  */
-async function handleRagQuery(userId: string, question: string, tags: string[]): Promise<Response> {
-    // Embed the question
+async function handleRagQuery(
+    userId: string,
+    question: string,
+    tags: string[],
+    conversationHistory: ConversationMessage[]
+): Promise<Response> {
     const queryEmbedding = await embedText(question);
     if (!queryEmbedding.length) {
         return jsonResponse(400, { error: 'Unable to embed the question' });
     }
 
-    // Resolve tag IDs if tags provided
     const tagIds = await resolveTagIds(userId, tags);
 
-    // If tags were provided but none found in DB, and we want strict filtering?
-    // The previous logic was: if tags provided, we MUST match them.
-    // If resolveTagIds returns empty but tags were provided, it means the tags don't exist.
-    // In that case, searchBookmarks with empty tagIds (null) would return ALL bookmarks, which is wrong.
-    // We should return early if tags were requested but none found.
     if (tags.length > 0 && tagIds.length === 0) {
         return jsonResponse(200, {
             answer: 'No bookmarks found with the selected tags.',
@@ -201,11 +206,116 @@ async function handleRagQuery(userId: string, question: string, tags: string[]):
     const candidates = searchResults.slice(0, 20);
     const matches = await rerankBookmarksWithLLM(question, candidates);
 
-    // Generate answer using RAG
-    const prompt = ragPrompt(question, buildSourcesText(matches));
+    // Generate answer using RAG with conversation history
+    const prompt = ragPrompt(question, buildSourcesText(matches), conversationHistory);
     const answer = matches.length ? await generateContent(prompt) : 'No matching bookmarks yet.';
 
     return jsonResponse(200, { answer, matches });
+}
+
+/**
+ * Main RAG query handler (streaming via SSE)
+ */
+async function handleRagQueryStream(
+    userId: string,
+    question: string,
+    tags: string[],
+    conversationHistory: ConversationMessage[]
+): Promise<Response> {
+    const queryEmbedding = await embedText(question);
+    if (!queryEmbedding.length) {
+        return jsonResponse(400, { error: 'Unable to embed the question' });
+    }
+
+    const tagIds = await resolveTagIds(userId, tags);
+
+    if (tags.length > 0 && tagIds.length === 0) {
+        // Return SSE with no matches message
+        const body = new ReadableStream({
+            start(controller) {
+                const encoder = new TextEncoder();
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches: [] })}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No bookmarks found with the selected tags.' })}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+                controller.close();
+            }
+        });
+        return new Response(body, {
+            headers: {
+                ...corsHeaders,
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            }
+        });
+    }
+
+    // Search bookmarks using RPC
+    const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
+
+    if (searchResults.length === 0) {
+        const body = new ReadableStream({
+            start(controller) {
+                const encoder = new TextEncoder();
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches: [] })}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No matching bookmarks yet.' })}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+                controller.close();
+            }
+        });
+        return new Response(body, {
+            headers: {
+                ...corsHeaders,
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            }
+        });
+    }
+
+    // Rerank bookmarks using LLM
+    const candidates = searchResults.slice(0, 20);
+    const matches = await rerankBookmarksWithLLM(question, candidates);
+
+    // Generate answer using RAG with streaming
+    const prompt = ragPrompt(question, buildSourcesText(matches), conversationHistory);
+
+    const body = new ReadableStream({
+        async start(controller) {
+            const encoder = new TextEncoder();
+
+            // First, send the matches
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches })}\n\n`));
+
+            if (!matches.length) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No matching bookmarks yet.' })}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+                controller.close();
+                return;
+            }
+
+            try {
+                // Stream the content
+                for await (const chunk of streamContent(prompt)) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: chunk })}\n\n`));
+                }
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            } catch (error) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: error instanceof Error ? error.message : 'Unknown error' })}\n\n`));
+            } finally {
+                controller.close();
+            }
+        }
+    });
+
+    return new Response(body, {
+        headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+        }
+    });
 }
 
 /**
@@ -232,12 +342,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const body = (await readJson<RagPayload>(req)) ?? {};
         const question = (body.question ?? '').trim();
         const tags = body.tags ?? [];
+        const conversationHistory = body.conversation_history ?? [];
+        const stream = body.stream ?? false;
 
         if (question.length < 3) {
             return jsonResponse(400, { error: 'Question is too short' });
         }
 
-        return await handleRagQuery(userId, question, tags);
+        if (stream) {
+            return await handleRagQueryStream(userId, question, tags, conversationHistory);
+        }
+        return await handleRagQuery(userId, question, tags, conversationHistory);
     } catch (error) {
         console.error('rag-query function failed', error);
         return jsonResponse(500, { error: error instanceof Error ? error.message : 'Unknown error' });

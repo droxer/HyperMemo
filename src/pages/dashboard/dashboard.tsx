@@ -17,7 +17,7 @@ import { Drawer } from '@/components/Drawer';
 import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
 import type { TagSummary } from '@/types/tag';
 import type { Subscription } from '@/types/subscription';
-import { draftAnswerFromBookmarks, type RagMatch } from '@/services/ragService';
+import { streamAnswerFromBookmarks, type RagMatch, type ConversationMessage } from '@/services/ragService';
 import { composeNoteFromBookmarks, exportNoteToGoogleDocs } from '@/services/notesService';
 import { listTags } from '@/services/tagService';
 import { getUserSubscription } from '@/services/subscriptionService';
@@ -672,32 +672,72 @@ export default function DashboardApp() {
         setChatLoading(true);
         setChatError(null);
 
+        // Remove the assistant message we're regenerating and add a new placeholder
+        const updatedMessages = session.messages.slice(0, messageIndex);
+        const assistantMessageId = crypto.randomUUID();
+        const assistantMessage: ChatMessage = {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: '',
+            createdAt: new Date().toISOString(),
+            citations: []
+        };
+
+        setSessions(prevSessions => prevSessions.map(s =>
+            s.id === activeSessionId
+                ? { ...s, messages: [...updatedMessages, assistantMessage], updatedAt: new Date().toISOString() }
+                : s
+        ));
+
+        // Get conversation history up to (but not including) the message being regenerated
+        const conversationHistory: ConversationMessage[] = session.messages
+            .slice(0, messageIndex - 1) // Exclude the user message that triggered this response
+            .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+            .map(msg => ({
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content
+            }));
+
         try {
-            // Remove the assistant message we're regenerating
-            const updatedMessages = session.messages.slice(0, messageIndex);
-            setSessions(prevSessions => prevSessions.map(s =>
-                s.id === activeSessionId
-                    ? { ...s, messages: updatedMessages, updatedAt: new Date().toISOString() }
-                    : s
-            ));
+            let streamedContent = '';
+            let matches: RagMatch[] = [];
 
-            // Get the tags from the original user message if any
-            const response = await draftAnswerFromBookmarks(userMessage.content, chatTags);
-            setCitations(response.matches);
-
-            const assistantMessage: ChatMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: response.answer,
-                createdAt: new Date().toISOString(),
-                citations: response.matches
-            };
-
-            setSessions(prevSessions => prevSessions.map(s =>
-                s.id === activeSessionId
-                    ? { ...s, messages: [...updatedMessages, assistantMessage], updatedAt: new Date().toISOString() }
-                    : s
-            ));
+            for await (const event of streamAnswerFromBookmarks(userMessage.content, chatTags, conversationHistory)) {
+                if (event.type === 'matches') {
+                    matches = event.matches;
+                    setCitations(matches);
+                    setSessions(prevSessions => prevSessions.map(s =>
+                        s.id === activeSessionId
+                            ? {
+                                ...s,
+                                messages: s.messages.map(m =>
+                                    m.id === assistantMessageId
+                                        ? { ...m, citations: matches }
+                                        : m
+                                ),
+                                updatedAt: new Date().toISOString()
+                            }
+                            : s
+                    ));
+                } else if (event.type === 'content') {
+                    streamedContent += event.content;
+                    setSessions(prevSessions => prevSessions.map(s =>
+                        s.id === activeSessionId
+                            ? {
+                                ...s,
+                                messages: s.messages.map(m =>
+                                    m.id === assistantMessageId
+                                        ? { ...m, content: streamedContent }
+                                        : m
+                                ),
+                                updatedAt: new Date().toISOString()
+                            }
+                            : s
+                    ));
+                } else if (event.type === 'error') {
+                    throw new Error(event.error);
+                }
+            }
         } catch (error) {
             console.error('Failed to regenerate response', error);
             setChatError('Failed to regenerate response. Please try again.');
@@ -726,6 +766,15 @@ export default function DashboardApp() {
         setChatLoading(true);
         setChatError(null);
 
+        // Get current session's messages for conversation history (exclude system messages)
+        const currentSession = forcedSession || sessions.find(s => s.id === targetSessionId);
+        const conversationHistory: ConversationMessage[] = (currentSession?.messages || [])
+            .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+            .map(msg => ({
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content
+            }));
+
         const userMessage: ChatMessage = {
             id: crypto.randomUUID(),
             role: 'user',
@@ -733,7 +782,17 @@ export default function DashboardApp() {
             createdAt: new Date().toISOString()
         };
 
-        // Optimistically update UI
+        // Create a placeholder assistant message for streaming
+        const assistantMessageId = crypto.randomUUID();
+        const assistantMessage: ChatMessage = {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: '',
+            createdAt: new Date().toISOString(),
+            citations: []
+        };
+
+        // Add both user message and placeholder assistant message in one update
         setSessions(prevSessions => {
             let currentSessions = prevSessions;
             // If a forced session is provided and not in the list, prepend it
@@ -748,7 +807,7 @@ export default function DashboardApp() {
                     return {
                         ...s,
                         title,
-                        messages: [...s.messages, userMessage],
+                        messages: [...s.messages, userMessage, assistantMessage],
                         updatedAt: new Date().toISOString()
                     };
                 }
@@ -767,25 +826,60 @@ export default function DashboardApp() {
         });
 
         try {
-            const response = await draftAnswerFromBookmarks(currentQuestion, chatTags);
-            setCitations(response.matches);
+            let streamedContent = '';
+            let matches: RagMatch[] = [];
 
-            const assistantMessage: ChatMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: response.answer,
-                createdAt: new Date().toISOString(),
-                citations: response.matches
-            };
-
-            setSessions(prevSessions => prevSessions.map(s =>
-                s.id === targetSessionId
-                    ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: new Date().toISOString() }
-                    : s
-            ));
+            for await (const event of streamAnswerFromBookmarks(currentQuestion, chatTags, conversationHistory)) {
+                if (event.type === 'matches') {
+                    matches = event.matches;
+                    setCitations(matches);
+                    // Update citations in the message
+                    setSessions(prevSessions => prevSessions.map(s =>
+                        s.id === targetSessionId
+                            ? {
+                                ...s,
+                                messages: s.messages.map(m =>
+                                    m.id === assistantMessageId
+                                        ? { ...m, citations: matches }
+                                        : m
+                                ),
+                                updatedAt: new Date().toISOString()
+                            }
+                            : s
+                    ));
+                } else if (event.type === 'content') {
+                    streamedContent += event.content;
+                    // Update the content progressively
+                    setSessions(prevSessions => prevSessions.map(s =>
+                        s.id === targetSessionId
+                            ? {
+                                ...s,
+                                messages: s.messages.map(m =>
+                                    m.id === assistantMessageId
+                                        ? { ...m, content: streamedContent }
+                                        : m
+                                ),
+                                updatedAt: new Date().toISOString()
+                            }
+                            : s
+                    ));
+                } else if (event.type === 'error') {
+                    throw new Error(event.error);
+                }
+            }
         } catch (error) {
             console.error('Failed to query RAG backend', error);
             setChatError('Failed to get answer. Please try again.');
+            // Remove the failed assistant message
+            setSessions(prevSessions => prevSessions.map(s =>
+                s.id === targetSessionId
+                    ? {
+                        ...s,
+                        messages: s.messages.filter(m => m.id !== assistantMessageId),
+                        updatedAt: new Date().toISOString()
+                    }
+                    : s
+            ));
         } finally {
             setChatLoading(false);
         }
@@ -1224,8 +1318,16 @@ export default function DashboardApp() {
                                             )}
                                         </div>
                                         <div className="chat-bubble-container">
-                                            <div className="chat-bubble markdown-body">
-                                                <MessageContent content={message.content} citations={message.citations} />
+                                            <div className={`chat-bubble ${message.content ? 'markdown-body' : 'chat-bubble--loading'}`}>
+                                                {message.content ? (
+                                                    <MessageContent content={message.content} citations={message.citations} />
+                                                ) : message.role === 'assistant' ? (
+                                                    <div className="typing-indicator">
+                                                        <span />
+                                                        <span />
+                                                        <span />
+                                                    </div>
+                                                ) : null}
                                             </div>
                                             {message.role === 'assistant' && (
                                                 <div className="chat-actions">
@@ -1259,7 +1361,8 @@ export default function DashboardApp() {
                                                     </button>
                                                 </div>
                                             )}
-                                            {message.citations && message.citations.length > 0 && (
+                                            {/* Only show citations after streaming is complete */}
+                                            {message.citations && message.citations.length > 0 && !chatLoading && (
                                                 <div className="chat-citations">
                                                     <span className="chat-citations-label">{t('chat.sources')}</span>
                                                     <div className="chat-citations-list">
@@ -1281,27 +1384,6 @@ export default function DashboardApp() {
                                         </div>
                                     </div>
                                 ))}
-                                {chatLoading && (
-                                    <div className="chat-message chat-message--assistant">
-                                        <div className="chat-avatar chat-avatar--ai">
-                                            <div className="ai-avatar-icon">
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <title>AI Avatar</title>
-                                                    <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="currentColor" stroke="none" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                        <div className="chat-bubble-container">
-                                            <div className="chat-bubble chat-bubble--loading">
-                                                <div className="typing-indicator">
-                                                    <span />
-                                                    <span />
-                                                    <span />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                                 {!messages.length && (
                                     <div className="chat-empty">
                                         <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>👋</div>

@@ -25,19 +25,43 @@ export function tagsPrompt(title: string, content: string): string {
     ].join('\n');
 }
 
-export function ragPrompt(question: string, sources: string): string {
-    return [
+type ConversationMessage = {
+    role: 'user' | 'assistant';
+    content: string;
+};
+
+export function ragPrompt(
+    question: string,
+    sources: string,
+    conversationHistory?: ConversationMessage[]
+): string {
+    const parts = [
         'You are HyperMemo. Answer the question using ONLY the provided sources.',
         'IMPORTANT: When citing sources, use numbered superscript citations in the format [1], [2], etc.',
         'Place citations inline immediately after the relevant claim or fact.',
         'The numbers correspond to the source order [S1], [S2], etc. in the provided sources.',
         'Example: "React uses a virtual DOM for efficient updates [1]. Vue also implements reactivity [2]."',
         'Do NOT include the full URL or source title inline - just use the number in brackets.',
-        'You may cite multiple sources for one claim: [1][2]',
-        `Question: ${question}`,
-        'Sources:',
-        sources
-    ].join('\n');
+        'You may cite multiple sources for one claim: [1][2]'
+    ];
+
+    // Add conversation history if present
+    if (conversationHistory && conversationHistory.length > 0) {
+        parts.push('');
+        parts.push('Previous conversation:');
+        for (const msg of conversationHistory) {
+            const role = msg.role === 'user' ? 'User' : 'Assistant';
+            parts.push(`${role}: ${msg.content}`);
+        }
+        parts.push('');
+        parts.push('Continue the conversation by answering the following question. Use context from the previous conversation when relevant.');
+    }
+
+    parts.push(`Question: ${question}`);
+    parts.push('Sources:');
+    parts.push(sources);
+
+    return parts.join('\n');
 }
 
 export function rerankPrompt(question: string, items: string): string {

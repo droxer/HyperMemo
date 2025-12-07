@@ -144,10 +144,43 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+async function requestStream(path: string, init?: RequestInit): Promise<Response> {
+  const baseUrl = ensureFunctionBaseUrl();
+  const auth = await authHeaders();
+  const requestHeaders = new Headers(init?.headers || {});
+  auth.forEach((value, key) => requestHeaders.set(key, value));
+
+  const url = `${baseUrl}${path}`;
+  console.debug('API stream request:', { method: init?.method || 'GET', url, hasAuth: requestHeaders.has('Authorization') });
+
+  const response = await fetch(url, {
+    ...init,
+    headers: requestHeaders
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('API stream error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: text,
+      url
+    });
+    throw new ApiError(response.statusText || 'API request failed', response.status, text);
+  }
+
+  return response;
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined
+    }),
+  postStream: (path: string, body?: unknown) =>
+    requestStream(path, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined
     }),

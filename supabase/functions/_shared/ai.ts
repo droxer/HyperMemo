@@ -33,6 +33,63 @@ async function callOpenAIChat(prompt: string): Promise<string> {
     return typeof choice === 'string' ? choice.trim() : '';
 }
 
+async function* streamOpenAIChat(prompt: string): AsyncGenerator<string, void, unknown> {
+    if (!OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is not configured');
+    }
+    const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: OPENAI_HEADERS,
+        body: JSON.stringify({
+            model: OPENAI_MODEL,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            stream: true
+        })
+    });
+    if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`OpenAI chat failed: ${response.status} ${body}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error('No response body');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (!trimmed.startsWith('data: ')) continue;
+
+                try {
+                    const json = JSON.parse(trimmed.slice(6));
+                    const content = json.choices?.[0]?.delta?.content;
+                    if (content) {
+                        yield content;
+                    }
+                } catch {
+                    // Skip malformed JSON
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+}
+
 async function callOpenAIEmbedding(text: string): Promise<number[]> {
     if (!OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY is not configured');
@@ -59,6 +116,13 @@ export async function generateContent(prompt: string): Promise<string> {
         throw new Error(`Unsupported AI_PROVIDER: ${AI_PROVIDER}`);
     }
     return await callOpenAIChat(prompt);
+}
+
+export async function* streamContent(prompt: string): AsyncGenerator<string, void, unknown> {
+    if (AI_PROVIDER !== 'openai') {
+        throw new Error(`Unsupported AI_PROVIDER: ${AI_PROVIDER}`);
+    }
+    yield* streamOpenAIChat(prompt);
 }
 
 export async function embedText(text: string): Promise<number[]> {
