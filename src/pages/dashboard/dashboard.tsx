@@ -12,7 +12,7 @@ import { TagInput } from '@/components/TagInput';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
-import { ChatInput } from '@/components/ChatInput';
+import { ChatInput, type ChatContextBookmark } from '@/components/ChatInput';
 import { Drawer } from '@/components/Drawer';
 import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
 import type { TagSummary } from '@/types/tag';
@@ -148,6 +148,7 @@ export default function DashboardApp() {
 
     // Chat Tag State
     const [chatTags, setChatTags] = useState<string[]>([]);
+    const [chatBookmarks, setChatBookmarks] = useState<ChatContextBookmark[]>([]);
     const [showTagSuggestions, setShowTagSuggestions] = useState(false);
     const [tagSearch, setTagSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -357,6 +358,47 @@ export default function DashboardApp() {
         setSessions(updatedSessions);
         setActiveSessionId(newSession.id);
         return newSession;
+    };
+
+    const askAIAboutBookmark = (bookmark: Bookmark) => {
+        // Check subscription for chat feature
+        if (!isPro) {
+            openConfirm(
+                t('subscription.upgradeTitle'),
+                t('subscription.prompts.chat'),
+                () => setSubscriptionDrawerOpen(true)
+            );
+            return;
+        }
+
+        // Create a new session with the bookmark as context
+        const newSession: ChatSession = {
+            id: crypto.randomUUID(),
+            title: bookmark.title?.slice(0, 30) || 'Ask about bookmark',
+            messages: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        setSessions(prev => [newSession, ...prev]);
+        setActiveSessionId(newSession.id);
+        setActiveTab('chat');
+
+        // Set the question with a prompt about the bookmark (include link in markdown format)
+        const bookmarkLink = `[${bookmark.title}](${bookmark.url})`;
+        setQuestion(t('dashboard.askAIQuestion', { bookmark: bookmarkLink }));
+
+        // Set chat context to this specific bookmark
+        setChatBookmarks([{ id: bookmark.id, title: bookmark.title || 'Untitled' }]);
+        setChatTags([]); // Clear any existing tags
+
+        // Auto-resize the textarea after state update
+        setTimeout(() => {
+            if (chatInputRef.current) {
+                chatInputRef.current.style.height = 'auto';
+                chatInputRef.current.style.height = `${chatInputRef.current.scrollHeight}px`;
+            }
+        }, 0);
     };
 
     const deleteSession = (e: React.MouseEvent, sessionId: string) => {
@@ -701,8 +743,9 @@ export default function DashboardApp() {
         try {
             let streamedContent = '';
             let matches: RagMatch[] = [];
+            const bookmarkIds = chatBookmarks.map(b => b.id);
 
-            for await (const event of streamAnswerFromBookmarks(userMessage.content, chatTags, conversationHistory)) {
+            for await (const event of streamAnswerFromBookmarks(userMessage.content, chatTags, bookmarkIds, conversationHistory)) {
                 if (event.type === 'matches') {
                     matches = event.matches;
                     setCitations(matches);
@@ -828,8 +871,9 @@ export default function DashboardApp() {
         try {
             let streamedContent = '';
             let matches: RagMatch[] = [];
+            const bookmarkIds = chatBookmarks.map(b => b.id);
 
-            for await (const event of streamAnswerFromBookmarks(currentQuestion, chatTags, conversationHistory)) {
+            for await (const event of streamAnswerFromBookmarks(currentQuestion, chatTags, bookmarkIds, conversationHistory)) {
                 if (event.type === 'matches') {
                     matches = event.matches;
                     setCitations(matches);
@@ -1144,6 +1188,14 @@ export default function DashboardApp() {
                                         <div className="detail-actions">
                                             <button
                                                 type="button"
+                                                className="btn-icon primary"
+                                                onClick={() => askAIAboutBookmark(activeBookmark)}
+                                                title={t('dashboard.askAI')}
+                                            >
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('dashboard.askAI')}</title><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" /></svg>
+                                            </button>
+                                            <button
+                                                type="button"
                                                 className="btn-icon danger"
                                                 onClick={handleDelete}
                                                 title={t('dashboard.deleteBookmark')}
@@ -1281,6 +1333,8 @@ export default function DashboardApp() {
                                             placeholder={t('dashboard.searchPlaceholder')}
                                             tags={chatTags}
                                             onRemoveTag={handleRemoveChatTag}
+                                            bookmarks={chatBookmarks}
+                                            onRemoveBookmark={(id) => setChatBookmarks(chatBookmarks.filter(b => b.id !== id))}
                                             showTagSuggestions={showTagSuggestions}
                                             filteredTags={filteredTags}
                                             selectedTagIndex={selectedIndex}
@@ -1400,6 +1454,8 @@ export default function DashboardApp() {
                                 loading={chatLoading}
                                 tags={chatTags}
                                 onRemoveTag={handleRemoveChatTag}
+                                bookmarks={chatBookmarks}
+                                onRemoveBookmark={(id) => setChatBookmarks(chatBookmarks.filter(b => b.id !== id))}
                                 showTagSuggestions={showTagSuggestions}
                                 filteredTags={filteredTags}
                                 selectedTagIndex={selectedIndex}

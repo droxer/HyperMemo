@@ -25,11 +25,13 @@ export type StreamEvent =
 export async function draftAnswerFromBookmarks(
     question: string,
     tags?: string[],
+    bookmarkIds?: string[],
     conversationHistory?: ConversationMessage[]
 ): Promise<RagResponse> {
     return apiClient.post<RagResponse>('/rag_query', {
         question,
         tags,
+        bookmark_ids: bookmarkIds,
         conversation_history: conversationHistory
     });
 }
@@ -37,11 +39,13 @@ export async function draftAnswerFromBookmarks(
 export async function* streamAnswerFromBookmarks(
     question: string,
     tags?: string[],
+    bookmarkIds?: string[],
     conversationHistory?: ConversationMessage[]
 ): AsyncGenerator<StreamEvent, void, unknown> {
     const response = await apiClient.postStream('/rag_query', {
         question,
         tags,
+        bookmark_ids: bookmarkIds,
         conversation_history: conversationHistory,
         stream: true
     });

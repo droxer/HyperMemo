@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.8] - 2025-12-07
 
 ### Added
+- **Ask AI Button**: Added "Ask AI" button to bookmark detail view - quickly start an AI chat about the current bookmark with full content as context
+- **Bookmark Context in Chat**: When using "Ask AI" on a bookmark, the chat input now shows the bookmark with a distinct green bookmark icon (vs blue @ for tags)
 - **Streaming Responses**: AI responses now stream in real-time using Server-Sent Events (SSE), providing a much better user experience with text appearing progressively
 - **Conversation Context**: AI chat now maintains conversation history within a session, enabling natural follow-up questions and multi-turn conversations
 
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Citation Style**: Redesigned inline citations to Wikipedia-style bracketed links `[1]`, `[2]` with hover tooltips showing source titles
 - **Citation Container**: Enhanced the sources section below AI responses with blue gradient background and improved visual contrast
 - **RAG Prompt**: Updated AI to generate numbered citations instead of inline markdown links for cleaner formatting
+- **Bookmark-Specific AI Context**: When asking AI about a specific bookmark, the full bookmark content is now used (not just the summary), providing much more detailed and accurate responses
 
 ### Fixed
 - **Citation Rendering**: Fixed issue where `[1]`, `[2]` citation markers were not clickable - now properly linked to source bookmarks

@@ -2,6 +2,11 @@ import type { FC, KeyboardEvent, ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import './ChatInput.css';
 
+export interface ChatContextBookmark {
+    id: string;
+    title: string;
+}
+
 interface ChatInputProps {
     value: string;
     onChange: (value: string) => void;
@@ -12,6 +17,8 @@ interface ChatInputProps {
     placeholder?: string;
     tags?: string[];
     onRemoveTag?: (tag: string) => void;
+    bookmarks?: ChatContextBookmark[];
+    onRemoveBookmark?: (bookmarkId: string) => void;
     showTagSuggestions?: boolean;
     filteredTags?: string[];
     selectedTagIndex?: number;
@@ -31,6 +38,8 @@ export const ChatInput: FC<ChatInputProps> = ({
     placeholder,
     tags = [],
     onRemoveTag,
+    bookmarks = [],
+    onRemoveBookmark,
     showTagSuggestions = false,
     filteredTags = [],
     selectedTagIndex = -1,
@@ -50,8 +59,27 @@ export const ChatInput: FC<ChatInputProps> = ({
 
     return (
         <div className="chat-input-container" style={{ position: 'relative' }}>
-            {tags.length > 0 && (
+            {(tags.length > 0 || bookmarks.length > 0) && (
                 <div className="chat-tags">
+                    {bookmarks.map(bookmark => (
+                        <span key={bookmark.id} className="chat-tag chat-tag-bookmark">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <title>Bookmark</title>
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                            </svg>
+                            {bookmark.title.length > 30 ? `${bookmark.title.slice(0, 30)}...` : bookmark.title}
+                            {onRemoveBookmark && (
+                                <button
+                                    type="button"
+                                    onClick={() => onRemoveBookmark(bookmark.id)}
+                                    className="chat-tag-remove"
+                                    aria-label={`Remove ${bookmark.title}`}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </span>
+                    ))}
                     {tags.map(tag => (
                         <span key={tag} className="chat-tag">
                             @{tag}

@@ -32,6 +32,8 @@
         "selectBookmark": "Select a bookmark from the sidebar to view details",
         "selectBookmarkSummary": "Select a bookmark from the sidebar to view its summary.",
         "deleteBookmark": "Delete bookmark",
+        "askAI": "Ask AI about this",
+        "askAIQuestion": "What is {{bookmark}} about?",
         "externalLink": "External link",
         "autoTag": "Auto-tag",
         "analyzing": "Analyzing...",

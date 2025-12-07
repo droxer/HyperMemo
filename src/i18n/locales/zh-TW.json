@@ -31,6 +31,8 @@
         "selectBookmark": "從側邊欄選擇一個書籤以查看詳情",
         "selectBookmarkSummary": "從側邊欄選擇一個書籤以查看其摘要。",
         "deleteBookmark": "刪除書籤",
+        "askAI": "詢問AI",
+        "askAIQuestion": "{{bookmark}} 這篇文章講了什麼？",
         "externalLink": "外部連結",
         "autoTag": "自動標籤",
         "analyzing": "分析中...",

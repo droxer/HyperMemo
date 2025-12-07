@@ -31,6 +31,8 @@
         "selectBookmark": "从侧边栏选择一个书签以查看详情",
         "selectBookmarkSummary": "从侧边栏选择一个书签以查看其摘要。",
         "deleteBookmark": "删除书签",
+        "askAI": "询问AI",
+        "askAIQuestion": "{{bookmark}} 这篇文章讲了什么？",
         "externalLink": "外部链接",
         "autoTag": "自动标签",
         "analyzing": "分析中...",

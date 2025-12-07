@@ -49,6 +49,15 @@
     opacity: 1;
 }
 
+.chat-tag-bookmark {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.chat-tag-bookmark svg {
+    flex-shrink: 0;
+}
+
 .tag-suggestions {
     position: absolute;
     left: 0;
