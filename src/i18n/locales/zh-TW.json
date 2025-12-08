@@ -143,5 +143,17 @@
             "autoTag": "自動為您的書籤生成智能標籤。",
             "aiSummary": "自動為您的書籤生成摘要。"
         }
+    },
+    "notes": {
+        "saveAsNote": "儲存為筆記",
+        "saving": "儲存中...",
+        "deleteNote": "刪除筆記",
+        "deleteConfirm": "確定要刪除這個筆記嗎？",
+        "content": "筆記內容",
+        "fromChat": "來自對話",
+        "fromBookmarks": "來自書籤",
+        "goToChat": "查看原始對話",
+        "empty": "暫無筆記",
+        "emptyMessage": "將對話儲存為筆記後會顯示在這裡"
     }
 }

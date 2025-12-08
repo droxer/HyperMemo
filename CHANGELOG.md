@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2025-12-08
+
+### Added
+- **Notes Feature**: Save AI chat conversations as organized, LLM-processed notes
+- **Notes Tab**: New "Notes" tab in sidebar and center panel with "Beta" badge
+- **Clickable "From Chat" Badge**: Navigate back to the original chat session from a saved note
+
+### Changed
+- **Default View**: Chat tab is now the default landing view instead of bookmarks
+- **Sidebar Width**: Increased to 400px for better readability
+- **Chat History Panel**: Increased width to 360px
+- **Notes Sidebar Display**: Simplified to show only note titles
+- **Subscription Panel**: Redesigned with cleaner, flatter style matching site aesthetics
+- **Removed AI Badge**: Removed decorative AI badge from Chat tab
+
 ## [0.0.8] - 2025-12-07
 
 ### Added

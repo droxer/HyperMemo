@@ -34,12 +34,14 @@ export interface Bookmark extends BookmarkPayload {
 export interface NoteDocument {
     id: string;
     title: string;
-    bookmarkIds: string[];
     body: string;
-    status: 'draft' | 'exporting' | 'exported' | 'failed';
-    exportUrl?: string;
-    driveFileId?: string;
+    summary?: string;
+    sourceType: 'chat' | 'bookmarks';
+    chatSessionId?: string;
+    bookmarkIds: string[];
     createdAt: string;
+    updatedAt: string;
+    exportUrl?: string;
 }
 
 export interface Citation {

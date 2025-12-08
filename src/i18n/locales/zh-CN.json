@@ -143,5 +143,17 @@
             "autoTag": "自动为您的书签生成智能标签。",
             "aiSummary": "自动为您的书签生成摘要。"
         }
+    },
+    "notes": {
+        "saveAsNote": "保存为笔记",
+        "saving": "保存中...",
+        "deleteNote": "删除笔记",
+        "deleteConfirm": "确定要删除这个笔记吗？",
+        "content": "笔记内容",
+        "fromChat": "来自对话",
+        "fromBookmarks": "来自书签",
+        "goToChat": "查看原始对话",
+        "empty": "暂无笔记",
+        "emptyMessage": "将对话保存为笔记后会显示在这里"
     }
 }

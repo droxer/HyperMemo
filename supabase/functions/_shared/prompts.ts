@@ -87,3 +87,36 @@ export function rerankPrompt(question: string, items: string): string {
     ].join('\n');
 }
 
+export function chatToNotePrompt(chatHistory: string, sources: string): string {
+    return [
+        'You are HyperMemo, a note-taking assistant. Transform the following chat conversation into a well-organized, readable note.',
+        '',
+        'Guidelines:',
+        '- Extract the key insights, facts, and learnings from the conversation',
+        '- Organize the content with clear headings and sections',
+        '- Use bullet points for lists and key takeaways',
+        '- Remove conversational elements (greetings, "thank you", etc.)',
+        '- Keep the important information and context',
+        '- If sources were cited, include a "References" section at the end',
+        '- Write in a clear, professional tone suitable for personal notes',
+        '- Use markdown formatting for structure',
+        '',
+        'Output format:',
+        '# [Generate a descriptive title based on the main topic]',
+        '',
+        '## Key Points',
+        '[Main insights and takeaways]',
+        '',
+        '## Details',
+        '[Detailed information organized by subtopics]',
+        '',
+        '## References',
+        '[List of sources if any were cited]',
+        '',
+        '---',
+        'Chat Conversation:',
+        chatHistory,
+        '',
+        sources ? `Sources Referenced:\n${sources}` : ''
+    ].join('\n');
+}

@@ -386,24 +386,24 @@ async function handleRagQueryStream(
                 'Connection': 'keep-alive'
             }
         });
-    } else {
-        // Normal search flow
-        const queryEmbedding = await embedText(question);
-        if (!queryEmbedding.length) {
-            return jsonResponse(400, { error: 'Unable to embed the question' });
-        }
+    }
 
-        const tagIds = await resolveTagIds(userId, tags);
+    // Normal search flow
+    const queryEmbedding = await embedText(question);
+    if (!queryEmbedding.length) {
+        return jsonResponse(400, { error: 'Unable to embed the question' });
+    }
 
-        if (tags.length === 0 || tagIds.length > 0) {
-            // Search bookmarks using RPC
-            const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
+    const tagIds = await resolveTagIds(userId, tags);
 
-            if (searchResults.length > 0) {
-                // Rerank bookmarks using LLM
-                const candidates = searchResults.slice(0, 20);
-                matches = await rerankBookmarksWithLLM(question, candidates);
-            }
+    if (tags.length === 0 || tagIds.length > 0) {
+        // Search bookmarks using RPC
+        const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
+
+        if (searchResults.length > 0) {
+            // Rerank bookmarks using LLM
+            const candidates = searchResults.slice(0, 20);
+            matches = await rerankBookmarksWithLLM(question, candidates);
         }
     }
 

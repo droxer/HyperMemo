@@ -18,7 +18,7 @@ import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/b
 import type { TagSummary } from '@/types/tag';
 import type { Subscription } from '@/types/subscription';
 import { streamAnswerFromBookmarks, type RagMatch, type ConversationMessage } from '@/services/ragService';
-import { composeNoteFromBookmarks, exportNoteToGoogleDocs } from '@/services/notesService';
+import { composeNoteFromBookmarks, generateNoteFromChat, saveNote, listNotes, deleteNote, exportNoteToGoogleDocs } from '@/services/notesService';
 import { listTags } from '@/services/tagService';
 import { getUserSubscription } from '@/services/subscriptionService';
 import { ApiError } from '@/services/apiClient';
@@ -117,7 +117,8 @@ export default function DashboardApp() {
     const { t } = useTranslation();
 
     // Navigation State
-    const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'notes'>('chat');
+    const [sidebarTab, setSidebarTab] = useState<'bookmarks' | 'notes'>('bookmarks');
     const [subscriptionDrawerOpen, setSubscriptionDrawerOpen] = useState(false);
     const [activeBookmarkId, setActiveBookmarkId] = useState<string | null>(null);
     const [detailedBookmark, setDetailedBookmark] = useState<Bookmark | null>(null);
@@ -137,6 +138,9 @@ export default function DashboardApp() {
     const [noteTitle, setNoteTitle] = useState('HyperMemo Notes');
     const [note, setNote] = useState<NoteDocument | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [notes, setNotes] = useState<NoteDocument[]>([]);
+    const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+    const [savingNote, setSavingNote] = useState(false);
     const [citations, setCitations] = useState<RagMatch[]>([]);
     const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
     const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
@@ -315,6 +319,15 @@ export default function DashboardApp() {
             }
         };
         loadSessions();
+    }, []);
+
+    // Load notes on mount
+    useEffect(() => {
+        const loadNotes = async () => {
+            const savedNotes = await listNotes();
+            setNotes(savedNotes);
+        };
+        loadNotes();
     }, []);
 
     // Save sessions whenever they change (debounced)
@@ -690,6 +703,45 @@ export default function DashboardApp() {
         );
     };
 
+    const handleSaveAsNote = async () => {
+        if (!activeSession || activeSession.messages.length === 0) return;
+
+        setSavingNote(true);
+        try {
+            // Generate a proper note using LLM
+            const generatedNote = await generateNoteFromChat(activeSession);
+            const savedNote = await saveNote(generatedNote);
+            setNotes(prev => [savedNote, ...prev.filter(n => n.id !== savedNote.id)]);
+            setActiveNoteId(savedNote.id);
+            setSidebarTab('notes');
+            setActiveTab('notes');
+        } catch (error) {
+            console.error('Failed to save note', error);
+        } finally {
+            setSavingNote(false);
+        }
+    };
+
+    const handleDeleteNote = (noteId: string) => {
+        openConfirm(
+            t('notes.deleteNote'),
+            t('notes.deleteConfirm'),
+            async () => {
+                await deleteNote(noteId);
+                setNotes(prev => prev.filter(n => n.id !== noteId));
+                if (activeNoteId === noteId) {
+                    setActiveNoteId(null);
+                }
+            },
+            true
+        );
+    };
+
+    const activeNote = useMemo(
+        () => notes.find(n => n.id === activeNoteId) || null,
+        [notes, activeNoteId]
+    );
+
     const handleCopyMessage = async (messageId: string, content: string) => {
         try {
             await navigator.clipboard.writeText(content);
@@ -1005,7 +1057,7 @@ export default function DashboardApp() {
 
     return (
         <div className="dashboard">
-            {/* Left Sidebar - Always Bookmarks */}
+            {/* Left Sidebar - Bookmarks/Notes */}
             <aside className="sidebar">
                 <div className="sidebar__header">
                     <div className="flex-center" style={{ gap: '0.75rem' }}>
@@ -1013,64 +1065,151 @@ export default function DashboardApp() {
                         <h1 style={{ fontSize: '1.25rem', letterSpacing: '-0.025em' }}>{t('app.name')}</h1>
                     </div>
                 </div>
-                <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
-                    <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('sidebar.myLibrary')}</span>
-                        <span className="badge badge-subtle">{filteredBookmarks.length}</span>
-                    </div>
-                    <select
-                        value={selectedTag || ''}
-                        onChange={(e) => setSelectedTag(e.target.value || null)}
-                        style={{
-                            width: '100%',
-                            padding: '0.375rem',
-                            fontSize: '0.8rem',
-                            borderRadius: '0.375rem',
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg-main)',
-                            color: 'var(--text-primary)',
-                            outline: 'none'
+
+                {/* Sidebar Tabs */}
+                <div className="sidebar-tabs">
+                    <button
+                        type="button"
+                        className={`sidebar-tab ${sidebarTab === 'bookmarks' ? 'active' : ''}`}
+                        onClick={() => {
+                            setSidebarTab('bookmarks');
+                            setActiveNoteId(null);
                         }}
-                        disabled={loadingTags && availableTags.length === 0}
                     >
-                        <option value="">{t('sidebar.allTags')}</option>
-                        {availableTags.map(tag => (
-                            <option key={tag.id} value={tag.name}>
-                                {tag.bookmarkCount !== undefined ? `${tag.name} (${tag.bookmarkCount})` : tag.name}
-                            </option>
-                        ))}
-                    </select>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <title>{t('sidebar.bookmarks')}</title>
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>{t('sidebar.bookmarks')}</span>
+                        <span className="sidebar-tab-count">{filteredBookmarks.length}</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={`sidebar-tab ${sidebarTab === 'notes' ? 'active' : ''}`}
+                        onClick={() => {
+                            setSidebarTab('notes');
+                            setActiveTab('notes');
+                            setActiveBookmarkId(null);
+                        }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <title>{t('sidebar.notes')}</title>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                        </svg>
+                        <span>{t('sidebar.notes')}</span>
+                        <span className="sidebar-tab-count">{notes.length}</span>
+                    </button>
                 </div>
-                <div className="sidebar__list">
-                    {filteredBookmarks.map((bookmark) => (
-                        <div
-                            key={bookmark.id}
-                            className={`nav-item ${activeBookmarkId === bookmark.id ? 'active' : ''}`}
-                            onClick={() => handleBookmarkClick(bookmark.id)}
-                            // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    handleBookmarkClick(bookmark.id);
-                                }
-                            }}
-                        >
-                            <h3>{bookmark.title || t('dashboard.untitled')}</h3>
-                            <div className="flex-between">
-                                <p>{new URL(bookmark.url).hostname}</p>
-                                {activeTab === 'notes' && (
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedIds.includes(bookmark.id)}
-                                        onClick={(e) => toggleBookmarkSelection(e, bookmark.id)}
-                                        onChange={() => { }}
-                                    />
-                                )}
-                            </div>
+
+                {/* Bookmarks List */}
+                {sidebarTab === 'bookmarks' && (
+                    <>
+                        <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+                            <select
+                                value={selectedTag || ''}
+                                onChange={(e) => setSelectedTag(e.target.value || null)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.375rem',
+                                    fontSize: '0.8rem',
+                                    borderRadius: '0.375rem',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--bg-main)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none'
+                                }}
+                                disabled={loadingTags && availableTags.length === 0}
+                            >
+                                <option value="">{t('sidebar.allTags')}</option>
+                                {availableTags.map(tag => (
+                                    <option key={tag.id} value={tag.name}>
+                                        {tag.bookmarkCount !== undefined ? `${tag.name} (${tag.bookmarkCount})` : tag.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    ))}
-                </div>
+                        <div className="sidebar__list">
+                            {filteredBookmarks.map((bookmark) => (
+                                <div
+                                    key={bookmark.id}
+                                    className={`nav-item ${activeBookmarkId === bookmark.id ? 'active' : ''}`}
+                                    onClick={() => handleBookmarkClick(bookmark.id)}
+                                    // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            handleBookmarkClick(bookmark.id);
+                                        }
+                                    }}
+                                >
+                                    <h3>{bookmark.title || t('dashboard.untitled')}</h3>
+                                    <div className="flex-between">
+                                        <p>{new URL(bookmark.url).hostname}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {/* Notes List */}
+                {sidebarTab === 'notes' && (
+                    <div className="sidebar__list">
+                        {notes.length === 0 ? (
+                            <div className="sidebar-empty">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <title>{t('notes.empty')}</title>
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <p>{t('notes.emptyMessage')}</p>
+                            </div>
+                        ) : (
+                            notes.map((noteItem) => (
+                                <div
+                                    key={noteItem.id}
+                                    className={`nav-item nav-item--note ${activeNoteId === noteItem.id ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setActiveNoteId(noteItem.id);
+                                        setActiveTab('notes');
+                                        setActiveBookmarkId(null);
+                                    }}
+                                    // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            setActiveNoteId(noteItem.id);
+                                            setActiveTab('notes');
+                                        }
+                                    }}
+                                >
+                                    <h3>{noteItem.title}</h3>
+                                    <button
+                                        type="button"
+                                        className="nav-item-delete"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteNote(noteItem.id);
+                                        }}
+                                        title={t('notes.deleteNote')}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <title>{t('notes.deleteNote')}</title>
+                                            <polyline points="3 6 5 6 21 6" />
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </aside>
 
             {/* Main Content */}
@@ -1090,18 +1229,18 @@ export default function DashboardApp() {
                             onClick={() => setActiveTab('chat')}
                         >
                             {t('sidebar.chat')}
-                            <span className="tab-badge tab-badge--pro">
-                                <span className="tab-badge__icon">✨</span>
-                                <span className="tab-badge__text">AI</span>
-                            </span>
                         </button>
                         <button
                             type="button"
-                            className="tab"
-                            disabled
+                            className={`tab ${activeTab === 'notes' ? 'active' : ''}`}
+                            onClick={() => {
+                                setActiveTab('notes');
+                                setSidebarTab('notes');
+                                setActiveBookmarkId(null);
+                            }}
                         >
                             {t('sidebar.notes')}
-                            <span className="tab-badge tab-badge--subtle">{t('tabs.comingSoon')}</span>
+                            <span className="tab-badge tab-badge--beta">Beta</span>
                         </button>
                     </div>
                     <div className="flex-center">
@@ -1446,6 +1585,26 @@ export default function DashboardApp() {
                                     </div>
                                 )}
                             </div>
+                            {/* Save as Note button */}
+                            {messages.length > 0 && (
+                                <div className="chat-save-note">
+                                    <button
+                                        type="button"
+                                        className="btn-save-note"
+                                        onClick={handleSaveAsNote}
+                                        disabled={savingNote || chatLoading}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <title>{t('notes.saveAsNote')}</title>
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
+                                            <line x1="12" y1="18" x2="12" y2="12" />
+                                            <line x1="9" y1="15" x2="15" y2="15" />
+                                        </svg>
+                                        {savingNote ? t('notes.saving') : t('notes.saveAsNote')}
+                                    </button>
+                                </div>
+                            )}
                             <ChatInput
                                 value={question}
                                 onChange={handleChatInputChange}
@@ -1470,42 +1629,87 @@ export default function DashboardApp() {
 
                     {activeTab === 'notes' && (
                         <div className="notes-section">
-                            <div className="notes-input-group">
-                                <label className="notes-label" htmlFor="note-title">Note Title</label>
-                                <input
-                                    id="note-title"
-                                    value={noteTitle}
-                                    onChange={(e) => setNoteTitle(e.target.value)}
-                                    className="notes-title-input"
-                                />
-                            </div>
-                            <p className="notes-helper-text">
-                                Select bookmarks from the sidebar to include them in your note. ({selectedIds.length} selected)
-                            </p>
-                            <button
-                                type="button"
-                                className="primary"
-                                onClick={buildNote}
-                                disabled={!selectedBookmarks.length}
-                            >
-                                Generate Note
-                            </button>
+                            {activeNote ? (
+                                <div className="detail-view note-detail-view">
+                                    <header className="detail-header">
+                                        <div className="flex-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
+                                            <h1 className="detail-title">{activeNote.title}</h1>
+                                            <div className="detail-actions">
+                                                <button
+                                                    type="button"
+                                                    className="btn-icon danger"
+                                                    onClick={() => handleDeleteNote(activeNote.id)}
+                                                    title={t('notes.deleteNote')}
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('notes.deleteNote')}</title><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
 
-                            {note && (
-                                <div className="notes-preview">
-                                    <h3>Preview</h3>
-                                    <pre className="notes-pre">
-                                        {note.body}
-                                    </pre>
-                                    <div className="notes-actions">
-                                        <button type="button" className="ghost" onClick={exportNote} disabled={exporting}>
-                                            {exporting ? 'Exporting...' : 'Export to Google Docs'}
-                                        </button>
-                                        {note.exportUrl && (
-                                            <a href={note.exportUrl} target="_blank" rel="noreferrer" className="notes-link">
-                                                Open in Google Docs
-                                            </a>
-                                        )}
+                                        <div className="detail-meta">
+                                            {activeNote.sourceType === 'chat' && activeNote.chatSessionId ? (
+                                                <button
+                                                    type="button"
+                                                    className="note-source-badge note-source-badge--clickable"
+                                                    onClick={() => {
+                                                        if (activeNote.chatSessionId && sessions.find(s => s.id === activeNote.chatSessionId)) {
+                                                            setActiveSessionId(activeNote.chatSessionId);
+                                                            setActiveTab('chat');
+                                                            setSidebarTab('bookmarks');
+                                                            setActiveNoteId(null);
+                                                        }
+                                                    }}
+                                                    title={t('notes.goToChat')}
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <title>{t('notes.fromChat')}</title>
+                                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                                    </svg>
+                                                    {t('notes.fromChat')}
+                                                </button>
+                                            ) : (
+                                                <span className="note-source-badge">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <title>{t('notes.fromBookmarks')}</title>
+                                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                                                    </svg>
+                                                    {t('notes.fromBookmarks')}
+                                                </span>
+                                            )}
+                                            <span>•</span>
+                                            <span>{new Date(activeNote.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </header>
+
+                                    <section className="content-section">
+                                        <div className="markdown-body content-body">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />
+                                                }}
+                                            >
+                                                {activeNote.body.replace(/^#\s+.+\n+/, '')}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </section>
+                                </div>
+                            ) : (
+                                <div className="notes-empty-state">
+                                    <div className="empty-state">
+                                        <div className="flex-center" style={{ flexDirection: 'column', gap: '1.5rem', opacity: 0.8 }}>
+                                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                                                <title>{t('notes.empty')}</title>
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                <polyline points="14 2 14 8 20 8" />
+                                                <line x1="16" y1="13" x2="8" y2="13" />
+                                                <line x1="16" y1="17" x2="8" y2="17" />
+                                            </svg>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{t('notes.empty')}</h2>
+                                                <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', margin: 0 }}>{t('notes.emptyMessage')}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}

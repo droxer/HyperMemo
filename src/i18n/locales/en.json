@@ -144,5 +144,17 @@
             "autoTag": "Automatically generate smart tags for your bookmarks.",
             "aiSummary": "Automatically generate summaries for your bookmarks."
         }
+    },
+    "notes": {
+        "saveAsNote": "Save as Note",
+        "saving": "Saving...",
+        "deleteNote": "Delete Note",
+        "deleteConfirm": "Are you sure you want to delete this note?",
+        "content": "Note Content",
+        "fromChat": "From Chat",
+        "fromBookmarks": "From Bookmarks",
+        "goToChat": "Go to original chat",
+        "empty": "No notes",
+        "emptyMessage": "Save a chat as a note to see it here"
     }
 }
