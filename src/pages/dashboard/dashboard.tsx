@@ -1518,47 +1518,60 @@ export default function DashboardApp() {
             {/* Right Sidebar - Chat History (Only in Chat Tab) */}
             {
                 activeTab === 'chat' && isChatHistoryOpen && (
-                    <aside className="sidebar-right">
-                        <div className="sidebar__header">
-                            <h1 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{t('sidebar.chats')}</h1>
-                            <div className="flex-center" style={{ gap: '0.5rem' }}>
-                                <button type="button" className="btn-icon" onClick={handleResetSession} title={t('sidebar.resetChat')}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.resetChat')}</title><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                                </button>
-                                <button type="button" className="btn-icon" onClick={() => createNewSession()} title={t('sidebar.newChat')}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.newChat')}</title><path d="M12 5v14M5 12h14" /></svg>
-                                </button>
-                            </div>
+                    <aside className="chat-history-panel">
+                        <div className="chat-history-header">
+                            <h2>{t('sidebar.chats')}</h2>
+                            <button type="button" className="chat-history-new-btn" onClick={() => createNewSession()} title={t('sidebar.newChat')}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.newChat')}</title><path d="M12 5v14M5 12h14" /></svg>
+                            </button>
                         </div>
-                        <div className="sidebar__list">
-                            {sessions.map((session) => (
-                                <div
-                                    key={session.id}
-                                    className={`nav-item ${activeSessionId === session.id ? 'active' : ''}`}
-                                    onClick={() => setActiveSessionId(session.id)}
-                                    // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                            setActiveSessionId(session.id);
-                                        }
-                                    }}
-                                >
-                                    <div className="flex-between">
-                                        <h3 style={{ margin: 0 }}>{session.title}</h3>
+                        <div className="chat-history-list">
+                            {sessions.length === 0 ? (
+                                <div className="chat-history-empty">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <title>No chats</title>
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                    <p>No conversations yet</p>
+                                </div>
+                            ) : (
+                                sessions.map((session) => (
+                                    <div
+                                        key={session.id}
+                                        className={`chat-history-item ${activeSessionId === session.id ? 'active' : ''}`}
+                                        onClick={() => setActiveSessionId(session.id)}
+                                        // biome-ignore lint/a11y/useSemanticElements: Nested interactive elements require div
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                setActiveSessionId(session.id);
+                                            }
+                                        }}
+                                    >
+                                        <div className="chat-history-item-icon">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <title>Chat</title>
+                                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                            </svg>
+                                        </div>
+                                        <div className="chat-history-item-content">
+                                            <span className="chat-history-item-title">{session.title || 'New Chat'}</span>
+                                            <span className="chat-history-item-meta">
+                                                {session.messages.length} messages · {new Date(session.updatedAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
                                         <button
                                             type="button"
-                                            className="btn-icon danger"
-                                            style={{ padding: '2px', opacity: 0.6 }}
+                                            className="chat-history-item-delete"
                                             onClick={(e) => deleteSession(e, session.id)}
+                                            title={t('sidebar.deleteChat')}
                                         >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.deleteChat')}</title><path d="M18 6L6 18M6 6l12 12" /></svg>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><title>{t('sidebar.deleteChat')}</title><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                         </button>
                                     </div>
-                                    <p>{new Date(session.updatedAt).toLocaleDateString()}</p>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </aside>
                 )

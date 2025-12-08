@@ -35,14 +35,22 @@ export function ragPrompt(
     sources: string,
     conversationHistory?: ConversationMessage[]
 ): string {
-    const parts = [
-        'You are HyperMemo. Answer the question using ONLY the provided sources.',
+    const hasSources = sources && sources.trim().length > 0;
+
+    const parts = hasSources ? [
+        'You are HyperMemo. Answer the question using the provided sources as primary context.',
         'IMPORTANT: When citing sources, use numbered superscript citations in the format [1], [2], etc.',
         'Place citations inline immediately after the relevant claim or fact.',
         'The numbers correspond to the source order [S1], [S2], etc. in the provided sources.',
         'Example: "React uses a virtual DOM for efficient updates [1]. Vue also implements reactivity [2]."',
         'Do NOT include the full URL or source title inline - just use the number in brackets.',
         'You may cite multiple sources for one claim: [1][2]'
+    ] : [
+        'You are HyperMemo, a knowledgeable AI assistant.',
+        'No relevant bookmarks were found for this question.',
+        'Answer the question to the best of your ability using your general knowledge.',
+        'Provide a helpful, accurate, and well-structured response.',
+        'At the end, add: "Note: No matching bookmarks found. This answer is based on general knowledge."'
     ];
 
     // Add conversation history if present
@@ -58,8 +66,11 @@ export function ragPrompt(
     }
 
     parts.push(`Question: ${question}`);
-    parts.push('Sources:');
-    parts.push(sources);
+
+    if (hasSources) {
+        parts.push('Sources:');
+        parts.push(sources);
+    }
 
     return parts.join('\n');
 }
@@ -75,3 +86,4 @@ export function rerankPrompt(question: string, items: string): string {
         items
     ].join('\n');
 }
+

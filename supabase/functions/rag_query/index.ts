@@ -273,31 +273,22 @@ async function handleRagQuery(
 
     const tagIds = await resolveTagIds(userId, tags);
 
-    if (tags.length > 0 && tagIds.length === 0) {
-        return jsonResponse(200, {
-            answer: 'No bookmarks found with the selected tags.',
-            matches: []
-        });
+    let matches: RagMatch[] = [];
+
+    if (tags.length === 0 || tagIds.length > 0) {
+        // Search bookmarks using RPC
+        const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
+
+        if (searchResults.length > 0) {
+            // Rerank bookmarks using LLM
+            const candidates = searchResults.slice(0, 20);
+            matches = await rerankBookmarksWithLLM(question, candidates);
+        }
     }
 
-    // Search bookmarks using RPC
-    const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
-
-    if (searchResults.length === 0) {
-        return jsonResponse(200, {
-            answer: 'No matching bookmarks yet.',
-            matches: []
-        });
-    }
-
-    // Rerank bookmarks using LLM
-    // We take top 20 from vector search to pass to LLM for reranking
-    const candidates = searchResults.slice(0, 20);
-    const matches = await rerankBookmarksWithLLM(question, candidates);
-
-    // Generate answer using RAG with conversation history
+    // Generate answer - ragPrompt handles both with and without sources
     const prompt = ragPrompt(question, buildSourcesText(matches), conversationHistory);
-    const answer = matches.length ? await generateContent(prompt) : 'No matching bookmarks yet.';
+    const answer = await generateContent(prompt);
 
     return jsonResponse(200, { answer, matches });
 }
@@ -404,53 +395,16 @@ async function handleRagQueryStream(
 
         const tagIds = await resolveTagIds(userId, tags);
 
-        if (tags.length > 0 && tagIds.length === 0) {
-            // Return SSE with no matches message
-            const body = new ReadableStream({
-                start(controller) {
-                    const encoder = new TextEncoder();
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches: [] })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No bookmarks found with the selected tags.' })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-                    controller.close();
-                }
-            });
-            return new Response(body, {
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive'
-                }
-            });
+        if (tags.length === 0 || tagIds.length > 0) {
+            // Search bookmarks using RPC
+            const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
+
+            if (searchResults.length > 0) {
+                // Rerank bookmarks using LLM
+                const candidates = searchResults.slice(0, 20);
+                matches = await rerankBookmarksWithLLM(question, candidates);
+            }
         }
-
-        // Search bookmarks using RPC
-        const searchResults = await searchBookmarks(userId, queryEmbedding, tagIds);
-
-        if (searchResults.length === 0) {
-            const body = new ReadableStream({
-                start(controller) {
-                    const encoder = new TextEncoder();
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches: [] })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No matching bookmarks yet.' })}\n\n`));
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-                    controller.close();
-                }
-            });
-            return new Response(body, {
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive'
-                }
-            });
-        }
-
-        // Rerank bookmarks using LLM
-        const candidates = searchResults.slice(0, 20);
-        matches = await rerankBookmarksWithLLM(question, candidates);
     }
 
     // Generate answer using RAG with streaming
@@ -462,13 +416,6 @@ async function handleRagQueryStream(
 
             // First, send the matches
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'matches', matches })}\n\n`));
-
-            if (!matches.length) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: 'No matching bookmarks yet.' })}\n\n`));
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-                controller.close();
-                return;
-            }
 
             try {
                 // Stream the content
