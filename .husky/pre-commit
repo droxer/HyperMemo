@@ -2,4 +2,4 @@ set -e
 
 npx lint-staged
 pnpm vitest run
-deno test supabase/functions
+deno test --allow-env --allow-read supabase/functions

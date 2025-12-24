@@ -1,10 +1,13 @@
-import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { computeEmbedding, ensureSummary, ensureTags } from '../_shared/ai.ts';
-import { normalizeTagResult } from '../_shared/tagUtils.ts';
+import { syncBookmarkTags } from '../_shared/tagUtils.ts';
+import { WEBHOOK_SECRET } from '../_shared/env.ts';
+import { getCorsHeaders } from '../_shared/cors.ts';
 import { DOMParser } from "deno-dom";
 import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
+
+const FETCH_TIMEOUT_MS = 15000; // 15 seconds timeout for fetching web content
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -29,71 +32,20 @@ type WebhookPayload = {
     old_record: null;
 };
 
-async function getOrCreateTag(userId: string, tagName: string): Promise<string> {
-    const { data: existingTag } = await supabaseAdmin
-        .from('tags')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('name', tagName)
-        .single();
-
-    if (existingTag) {
-        return existingTag.id;
-    }
-
-    const { data: newTag, error } = await supabaseAdmin
-        .from('tags')
-        .insert({ user_id: userId, name: tagName })
-        .select('id')
-        .single();
-
-    if (error || !newTag) {
-        throw new Error(`Failed to create tag: ${error?.message}`);
-    }
-
-    return newTag.id;
-}
-
-type BookmarkTagAssociation = {
-    tag_id: string;
-    tags?: Array<{ name: string }> | { name: string } | null;
-};
-
-async function syncBookmarkTags(bookmarkId: string, userId: string, tagNames: string[]): Promise<void> {
-    // Get current tag associations
-    const { data: currentAssociations } = await supabaseAdmin
-        .from('bookmark_tags')
-        .select('tag_id, tags!inner(name)')
-        .eq('bookmark_id', bookmarkId);
-
-    const currentTagNames = new Set(
-        (currentAssociations || [])
-            .map((assoc: { tags: { name: string } | { name: string }[] | null }) => normalizeTagResult(assoc.tags)[0]?.name)
-            .filter((name: unknown): name is string => Boolean(name))
-    );
-    // const newTagNames = new Set(tagNames);
-
-    // Find tags to add (we only add new AI tags, we don't remove existing ones here to be safe)
-    const tagsToAdd = tagNames.filter(name => !currentTagNames.has(name));
-
-    // Add new associations
-    for (const tagName of tagsToAdd) {
-        const tagId = await getOrCreateTag(userId, tagName);
-        await supabaseAdmin
-            .from('bookmark_tags')
-            .insert({ bookmark_id: bookmarkId, tag_id: tagId });
-    }
-}
-
 async function fetchCurrentTags(bookmarkId: string): Promise<string[]> {
     const { data: currentAssociations } = await supabaseAdmin
         .from('bookmark_tags')
         .select('tags!inner(name)')
         .eq('bookmark_id', bookmarkId);
 
+    type TagAssoc = { tags: { name: string } | { name: string }[] | null };
     return (currentAssociations || [])
-        .map((assoc: { tags: { name: string } | { name: string }[] | null }) => normalizeTagResult(assoc.tags)[0]?.name)
-        .filter((name: unknown): name is string => Boolean(name));
+        .map((assoc: TagAssoc) => {
+            const tags = assoc.tags;
+            if (Array.isArray(tags)) return tags[0]?.name;
+            return tags?.name;
+        })
+        .filter((name): name is string => Boolean(name));
 }
 
 function cleanMarkdownContent(markdown: string, baseUrl: string): string {
@@ -141,11 +93,22 @@ function cleanMarkdownContent(markdown: string, baseUrl: string): string {
 async function fetchAndCleanContent(url: string): Promise<string | null> {
     try {
         console.log(`Fetching content from ${url}...`);
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; HyperMemoBot/1.0; +http://hypermemo.app)'
-            }
-        });
+
+        // Add timeout to prevent hanging on slow/unresponsive servers
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+        let response: Response;
+        try {
+            response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; HyperMemoBot/1.0; +http://hypermemo.app)'
+                },
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
 
         if (!response.ok) {
             console.warn(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
@@ -229,38 +192,36 @@ async function processBookmarkRecord(record: BookmarkRecord) {
         throw updateError;
     }
 
-    // 5. Sync Tags (Add new ones)
+    // 5. Sync Tags (Add new ones, don't remove existing user tags)
     if (generatedTags.length > 0) {
-        await syncBookmarkTags(id, user_id, generatedTags);
+        await syncBookmarkTags(id, user_id, generatedTags, false);
     }
 
     console.log(`Successfully processed bookmark ${id}`);
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request): Promise<Response> => {
+    const corsHeaders = getCorsHeaders(req);
+
     // Handle CORS preflight request
     if (req.method === 'OPTIONS') {
-        return new Response('ok', {
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
-            },
-        });
+        return new Response('ok', { headers: corsHeaders });
     }
 
+    const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
     try {
-        // 1. Check for Webhook
+        // 1. Check for Webhook (internal trigger from database)
         const webhookSecret = req.headers.get('x-webhook-secret');
-        if (webhookSecret === 'hypermemo-webhook-secret') {
+        const expectedSecret = WEBHOOK_SECRET || 'hypermemo-webhook-secret'; // Fallback for backwards compatibility
+        if (webhookSecret === expectedSecret) {
             const payload: WebhookPayload = await req.json();
             const { record } = payload;
             if (!record || !record.id) {
-                return new Response("No record found", { status: 400 });
+                return new Response(JSON.stringify({ error: "No record found" }), { status: 400, headers: jsonHeaders });
             }
             await processBookmarkRecord(record);
-            return new Response(JSON.stringify({ success: true }), {
-                headers: { "Content-Type": "application/json" }
-            });
+            return new Response(JSON.stringify({ success: true }), { headers: jsonHeaders });
         }
 
         // 2. Check for User Request (Authorization header)
@@ -275,12 +236,12 @@ serve(async (req) => {
             const { data: { user }, error } = await supabaseClient.auth.getUser();
 
             if (error || !user) {
-                return new Response("Unauthorized", { status: 401, headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } });
+                return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
             }
 
             const { bookmark_id } = await req.json();
             if (!bookmark_id) {
-                return new Response("Missing bookmark_id", { status: 400, headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } });
+                return new Response(JSON.stringify({ error: "Missing bookmark_id" }), { status: 400, headers: jsonHeaders });
             }
 
             // Fetch record
@@ -291,27 +252,23 @@ serve(async (req) => {
                 .single();
 
             if (fetchError || !record) {
-                return new Response("Bookmark not found", { status: 404, headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } });
+                return new Response(JSON.stringify({ error: "Bookmark not found" }), { status: 404, headers: jsonHeaders });
             }
 
             // Verify ownership
             if (record.user_id !== user.id) {
-                return new Response("Forbidden", { status: 403, headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' } });
+                return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: jsonHeaders });
             }
 
             await processBookmarkRecord(record);
-            return new Response(JSON.stringify({ success: true }), {
-                headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' }
-            });
+            return new Response(JSON.stringify({ success: true }), { headers: jsonHeaders });
         }
 
-        return new Response("Unauthorized", { status: 401 });
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
 
     } catch (error) {
         console.error("Error processing bookmark:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 500,
-            headers: { "Content-Type": "application/json", 'Access-Control-Allow-Origin': '*' }
-        });
+        const message = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: message }), { status: 500, headers: jsonHeaders });
     }
 });

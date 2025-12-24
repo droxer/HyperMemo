@@ -8,24 +8,10 @@ import {
     FileText,
     MessageSquare,
     Plus,
-    Search,
     Trash2,
     Save,
-    Copy,
-    Check,
-    ExternalLink,
     Loader2,
-    ChevronDown,
-    Settings,
-    CreditCard,
-    User,
-    Sparkles,
-    Send,
     Globe,
-    RefreshCw,
-    Link,
-    Bot,
-    AlertTriangle,
     Menu,
     X,
 } from 'lucide-react';
@@ -34,120 +20,21 @@ import { useBookmarksContext } from '@/contexts/BookmarkContext';
 import { getBookmark } from '@/services/bookmarkService';
 import { supabase } from '@/services/supabaseClient';
 import { generateSummary, extractSmartTags } from '@/services/mlService';
-import { TagInput } from '@/components/TagInput';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { Header } from '@/components/Header';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
 import { ChatInput, type ChatContextBookmark } from '@/components/ChatInput';
 import { Drawer } from '@/components/Drawer';
-import { Button } from '@/components/ui/button';
-import type { Bookmark, ChatMessage, NoteDocument, ChatSession } from '@/types/bookmark';
+import { BookmarkDetailView } from '@/components/BookmarkDetailView';
+import { ChatMessage } from '@/components/ChatMessage';
+import type { Bookmark, ChatMessage as ChatMessageType, NoteDocument, ChatSession } from '@/types/bookmark';
 import type { TagSummary } from '@/types/tag';
 import type { Subscription } from '@/types/subscription';
 import { streamAnswerFromBookmarks, type RagMatch, type ConversationMessage } from '@/services/ragService';
 import { composeNoteFromBookmarks, generateNoteFromChat, saveNote, listNotes, deleteNote, exportNoteToGoogleDocs } from '@/services/notesService';
 import { listTags } from '@/services/tagService';
 import { getUserSubscription } from '@/services/subscriptionService';
-import { ApiError } from '@/services/apiClient';
 import { chromeStorage } from '@/utils/chrome';
-import { cleanMarkdownContent, isValidContent } from '@/utils/markdown';
-
-// Helper to transform text with citation patterns into React nodes
-function transformTextWithCitations(text: string, citations?: RagMatch[]): React.ReactNode {
-    if (!text.includes('[')) return text;
-
-    const parts = text.split(/(\[\d+\])/g);
-    if (parts.length === 1) return text;
-
-    return parts.map((part, index) => {
-        const match = part.match(/^\[(\d+)\]$/);
-        if (match && citations) {
-            const citationIndex = Number.parseInt(match[1], 10) - 1;
-            const citation = citations[citationIndex];
-            if (citation) {
-                return (
-                    <a
-                        key={`cite-${index}-${citation.bookmark.id}`}
-                        href={citation.bookmark.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="relative inline-flex items-center px-1 mx-0.5 text-xs font-medium text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors group"
-                    >
-                        [{match[1]}]
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-text-primary text-bg-main rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">{citation.bookmark.title}</span>
-                    </a>
-                );
-            }
-        }
-        return part || null;
-    });
-}
-
-// Component to render message content with inline citations
-function MessageContent({ content, citations, isUserMessage = false }: { content: string; citations?: RagMatch[]; isUserMessage?: boolean }) {
-    // Create custom components that process citations in text nodes
-    const components = useMemo(() => ({
-        a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => (
-            <a
-                href={href}
-                {...props}
-                target="_blank"
-                rel="noreferrer"
-                className={isUserMessage ? 'text-white underline decoration-white/50 hover:decoration-white' : undefined}
-            >
-                {children}
-            </a>
-        ),
-        p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: unknown }) => {
-            const processChildren = (child: React.ReactNode): React.ReactNode => {
-                if (typeof child === 'string') {
-                    return transformTextWithCitations(child, citations);
-                }
-                return child;
-            };
-            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
-            return <p {...props}>{processed}</p>;
-        },
-        li: ({ children, ...props }: React.LiHTMLAttributes<HTMLLIElement> & { node?: unknown }) => {
-            const processChildren = (child: React.ReactNode): React.ReactNode => {
-                if (typeof child === 'string') {
-                    return transformTextWithCitations(child, citations);
-                }
-                return child;
-            };
-            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
-            return <li {...props}>{processed}</li>;
-        },
-        strong: ({ children, ...props }: React.HTMLAttributes<HTMLElement> & { node?: unknown }) => {
-            const processChildren = (child: React.ReactNode): React.ReactNode => {
-                if (typeof child === 'string') {
-                    return transformTextWithCitations(child, citations);
-                }
-                return child;
-            };
-            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
-            return <strong {...props}>{processed}</strong>;
-        },
-        em: ({ children, ...props }: React.HTMLAttributes<HTMLElement> & { node?: unknown }) => {
-            const processChildren = (child: React.ReactNode): React.ReactNode => {
-                if (typeof child === 'string') {
-                    return transformTextWithCitations(child, citations);
-                }
-                return child;
-            };
-            const processed = Array.isArray(children) ? children.map(processChildren) : processChildren(children);
-            return <em {...props}>{processed}</em>;
-        }
-    }), [citations, isUserMessage]);
-
-    return (
-        <div className={`prose prose-chat max-w-none ${isUserMessage ? 'prose-chat-user' : ''}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-                {content}
-            </ReactMarkdown>
-        </div>
-    );
-}
 
 export default function DashboardApp() {
     const { user, login, logout, loading } = useAuth();
@@ -174,13 +61,13 @@ export default function DashboardApp() {
 
     // Feature State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [noteTitle, setNoteTitle] = useState('HyperMemo Notes');
+    const [noteTitle, _setNoteTitle] = useState('HyperMemo Notes');
     const [note, setNote] = useState<NoteDocument | null>(null);
-    const [exporting, setExporting] = useState(false);
+    const [_exporting, setExporting] = useState(false);
     const [notes, setNotes] = useState<NoteDocument[]>([]);
     const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
     const [savingNote, setSavingNote] = useState(false);
-    const [citations, setCitations] = useState<RagMatch[]>([]);
+    const [_citations, setCitations] = useState<RagMatch[]>([]);
     const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
     const [isRegeneratingSummary, setIsRegeneratingSummary] = useState(false);
     const [isRefetchingContent, setIsRefetchingContent] = useState(false);
@@ -247,7 +134,7 @@ export default function DashboardApp() {
         isDangerous: false
     });
 
-    const openConfirm = (title: string, message: string, onConfirm: () => void, isDangerous = false) => {
+    const openConfirm = useCallback((title: string, message: string, onConfirm: () => void, isDangerous = false) => {
         setModalConfig({
             isOpen: true,
             title,
@@ -255,11 +142,11 @@ export default function DashboardApp() {
             onConfirm,
             isDangerous
         });
-    };
+    }, []);
 
-    const closeConfirm = () => {
+    const closeConfirm = useCallback(() => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
-    };
+    }, []);
 
     const activeBookmark = useMemo(
         () => bookmarks.find((b) => b.id === activeBookmarkId),
@@ -320,35 +207,52 @@ export default function DashboardApp() {
         return tagNames.filter(t => t.toLowerCase().includes(tagSearch.toLowerCase()));
     }, [tagNames, tagSearch]);
 
-    // Load chat sessions on mount
+    // Load chat sessions and notes in parallel on mount
     useEffect(() => {
-        const loadSessions = async () => {
-            const savedSessions = await chromeStorage.get<ChatSession[]>('chat_sessions', []);
-            const lastActiveId = await chromeStorage.get<string | null>('active_session_id', null);
+        let isMounted = true;
 
-            if (savedSessions.length > 0) {
-                setSessions(savedSessions);
-                // Restore last active session or default to the first one (most recent usually)
-                if (lastActiveId && savedSessions.find(s => s.id === lastActiveId)) {
-                    setActiveSessionId(lastActiveId);
+        const loadInitialData = async () => {
+            try {
+                // Run both loads in parallel
+                const [sessionsResult, notesResult] = await Promise.all([
+                    Promise.all([
+                        chromeStorage.get<ChatSession[]>('chat_sessions', []),
+                        chromeStorage.get<string | null>('active_session_id', null)
+                    ]),
+                    listNotes()
+                ]);
+
+                if (!isMounted) return;
+
+                const [savedSessions, lastActiveId] = sessionsResult;
+                const savedNotes = notesResult;
+
+                // Set notes
+                setNotes(savedNotes);
+
+                // Set sessions
+                if (savedSessions.length > 0) {
+                    setSessions(savedSessions);
+                    // Restore last active session or default to the first one
+                    if (lastActiveId && savedSessions.find(s => s.id === lastActiveId)) {
+                        setActiveSessionId(lastActiveId);
+                    } else {
+                        setActiveSessionId(savedSessions[0].id);
+                    }
                 } else {
-                    setActiveSessionId(savedSessions[0].id);
+                    // Create initial session if none exist
+                    createNewSession(savedSessions);
                 }
-            } else {
-                // Create initial session if none exist
-                createNewSession(savedSessions);
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
             }
         };
-        loadSessions();
-    }, []);
 
-    // Load notes on mount
-    useEffect(() => {
-        const loadNotes = async () => {
-            const savedNotes = await listNotes();
-            setNotes(savedNotes);
+        loadInitialData();
+
+        return () => {
+            isMounted = false;
         };
-        loadNotes();
     }, []);
 
     // Save sessions whenever they change (debounced)
@@ -371,13 +275,25 @@ export default function DashboardApp() {
 
     // Load user subscription
     useEffect(() => {
+        let isMounted = true;
+
         const loadSubscription = async () => {
             if (user) {
-                const sub = await getUserSubscription();
-                setSubscription(sub);
+                try {
+                    const sub = await getUserSubscription(user.id);
+                    if (isMounted) {
+                        setSubscription(sub);
+                    }
+                } catch (error) {
+                    console.error('Failed to load subscription:', error);
+                }
             }
         };
         loadSubscription();
+
+        return () => {
+            isMounted = false;
+        };
     }, [user]);
 
     const createNewSession = (currentSessions: ChatSession[] = sessions) => {
@@ -639,7 +555,7 @@ export default function DashboardApp() {
         }
     };
 
-    const handleChatInputChange = (value: string) => {
+    const handleChatInputChange = useCallback((value: string) => {
         setQuestion(value);
 
         const lastWord = value.split(' ').pop();
@@ -650,28 +566,28 @@ export default function DashboardApp() {
         } else {
             setShowTagSuggestions(false);
         }
-    };
+    }, []);
 
-    const handleTagSelect = (tag: string) => {
-        if (!chatTags.includes(tag)) {
-            setChatTags([...chatTags, tag]);
-        }
+    const handleTagSelect = useCallback((tag: string) => {
+        setChatTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
 
         // Remove the @search part from the question
-        const words = question.split(' ');
-        words.pop(); // Remove the last word (which is the @tag)
-        setQuestion(`${words.join(' ')} `); // Add space for next typing
+        setQuestion(prev => {
+            const words = prev.split(' ');
+            words.pop(); // Remove the last word (which is the @tag)
+            return `${words.join(' ')} `; // Add space for next typing
+        });
 
         setShowTagSuggestions(false);
         setTagSearch('');
         setSelectedIndex(0);
-    };
+    }, []);
 
-    const handleRemoveChatTag = (tag: string) => {
-        setChatTags(chatTags.filter(t => t !== tag));
-    };
+    const handleRemoveChatTag = useCallback((tag: string) => {
+        setChatTags(prev => prev.filter(t => t !== tag));
+    }, []);
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit?: () => void) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit?: () => void) => {
         if (showTagSuggestions && filteredTags.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -703,11 +619,27 @@ export default function DashboardApp() {
                 askAssistant();
             }
         }
-    };
+    }, [showTagSuggestions, filteredTags, selectedIndex, handleTagSelect]);
 
     const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(true);
 
-    const handleResetSession = () => {
+    // Memoized handlers for Header component
+    const handleNotesTabClick = useCallback(() => {
+        setActiveTab('notes');
+        setSidebarTab('notes');
+        setActiveBookmarkId(null);
+    }, []);
+
+    const handleChatHistoryToggle = useCallback(() => {
+        setIsChatHistoryOpen(prev => !prev);
+    }, []);
+
+    const handleSubscriptionClick = useCallback(() => {
+        setSubscriptionDrawerOpen(true);
+    }, []);
+
+    // Reserved for future use - reset chat session
+    const _handleResetSession = () => {
         if (!activeSessionId) return;
         openConfirm(
             t('sidebar.resetChat'),
@@ -791,7 +723,7 @@ export default function DashboardApp() {
         // Remove the assistant message we're regenerating and add a new placeholder
         const updatedMessages = session.messages.slice(0, messageIndex);
         const assistantMessageId = crypto.randomUUID();
-        const assistantMessage: ChatMessage = {
+        const assistantMessage: ChatMessageType = {
             id: assistantMessageId,
             role: 'assistant',
             content: '',
@@ -892,7 +824,7 @@ export default function DashboardApp() {
                 content: msg.content
             }));
 
-        const userMessage: ChatMessage = {
+        const userMessage: ChatMessageType = {
             id: crypto.randomUUID(),
             role: 'user',
             content: currentQuestion,
@@ -901,7 +833,7 @@ export default function DashboardApp() {
 
         // Create a placeholder assistant message for streaming
         const assistantMessageId = crypto.randomUUID();
-        const assistantMessage: ChatMessage = {
+        const assistantMessage: ChatMessageType = {
             id: assistantMessageId,
             role: 'assistant',
             content: '',
@@ -947,44 +879,62 @@ export default function DashboardApp() {
             let matches: RagMatch[] = [];
             const bookmarkIds = chatBookmarks.map(b => b.id);
 
+            // Throttle state updates to reduce re-renders during streaming
+            let lastUpdateTime = 0;
+            const UPDATE_INTERVAL_MS = 50;
+            let pendingUpdate = false;
+
+            const updateSessionContent = (content: string, citations?: RagMatch[]) => {
+                setSessions(prevSessions => prevSessions.map(s =>
+                    s.id === targetSessionId
+                        ? {
+                            ...s,
+                            messages: s.messages.map(m =>
+                                m.id === assistantMessageId
+                                    ? { ...m, content, ...(citations ? { citations } : {}) }
+                                    : m
+                            ),
+                            updatedAt: new Date().toISOString()
+                        }
+                        : s
+                ));
+            };
+
+            const throttledUpdate = () => {
+                const now = Date.now();
+                if (now - lastUpdateTime >= UPDATE_INTERVAL_MS) {
+                    lastUpdateTime = now;
+                    updateSessionContent(streamedContent);
+                    pendingUpdate = false;
+                } else if (!pendingUpdate) {
+                    pendingUpdate = true;
+                    setTimeout(() => {
+                        if (pendingUpdate) {
+                            lastUpdateTime = Date.now();
+                            updateSessionContent(streamedContent);
+                            pendingUpdate = false;
+                        }
+                    }, UPDATE_INTERVAL_MS - (now - lastUpdateTime));
+                }
+            };
+
             for await (const event of streamAnswerFromBookmarks(currentQuestion, chatTags, bookmarkIds, conversationHistory)) {
                 if (event.type === 'matches') {
                     matches = event.matches;
                     setCitations(matches);
-                    // Update citations in the message
-                    setSessions(prevSessions => prevSessions.map(s =>
-                        s.id === targetSessionId
-                            ? {
-                                ...s,
-                                messages: s.messages.map(m =>
-                                    m.id === assistantMessageId
-                                        ? { ...m, citations: matches }
-                                        : m
-                                ),
-                                updatedAt: new Date().toISOString()
-                            }
-                            : s
-                    ));
+                    // Update citations immediately (happens once)
+                    updateSessionContent(streamedContent, matches);
                 } else if (event.type === 'content') {
                     streamedContent += event.content;
-                    // Update the content progressively
-                    setSessions(prevSessions => prevSessions.map(s =>
-                        s.id === targetSessionId
-                            ? {
-                                ...s,
-                                messages: s.messages.map(m =>
-                                    m.id === assistantMessageId
-                                        ? { ...m, content: streamedContent }
-                                        : m
-                                ),
-                                updatedAt: new Date().toISOString()
-                            }
-                            : s
-                    ));
+                    // Throttled update for content streaming
+                    throttledUpdate();
                 } else if (event.type === 'error') {
                     throw new Error(event.error);
                 }
             }
+
+            // Ensure final content is always rendered
+            updateSessionContent(streamedContent, matches);
         } catch (error) {
             console.error('Failed to query RAG backend', error);
             setChatError('Failed to get answer. Please try again.');
@@ -1003,14 +953,16 @@ export default function DashboardApp() {
         }
     };
 
-    const toggleBookmarkSelection = (e: React.MouseEvent, id: string) => {
+    // Reserved for future use - multi-select bookmarks for notes
+    const _toggleBookmarkSelection = useCallback((e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         setSelectedIds((prev) =>
             prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
         );
-    };
+    }, []);
 
-    const buildNote = async () => {
+    // Reserved for future use - compose note from selected bookmarks
+    const _buildNote = async () => {
         if (!selectedBookmarks.length) return;
         const draft = await composeNoteFromBookmarks(noteTitle, selectedBookmarks);
         setNote(draft);
@@ -1037,7 +989,8 @@ export default function DashboardApp() {
         }
     };
 
-    const exportNote = async () => {
+    // Reserved for future use - export note to Google Docs
+    const _exportNote = async () => {
         if (!note) return;
         setExporting(true);
         const exported = await exportNoteToGoogleDocs(note);
@@ -1281,158 +1234,29 @@ export default function DashboardApp() {
                     isChatHistoryOpen={isChatHistoryOpen}
                     subscription={subscription}
                     onTabChange={setActiveTab}
-                    onNotesTabClick={() => {
-                        setActiveTab('notes');
-                        setSidebarTab('notes');
-                        setActiveBookmarkId(null);
-                    }}
-                    onChatHistoryToggle={() => setIsChatHistoryOpen(!isChatHistoryOpen)}
-                    onSubscriptionClick={() => setSubscriptionDrawerOpen(true)}
+                    onNotesTabClick={handleNotesTabClick}
+                    onChatHistoryToggle={handleChatHistoryToggle}
+                    onSubscriptionClick={handleSubscriptionClick}
                     onLogout={logout}
                 />
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-[1200px] w-full mx-auto">
                     {activeTab === 'overview' && (
                         activeBookmark ? (
-                            <div className="max-w-[1000px] mx-auto">
-                                <header className="mb-6 md:mb-8 border-b border-border pb-4 md:pb-6">
-                                    <div className="flex justify-between items-start gap-3 md:gap-4">
-                                        <h1 className="text-xl md:text-3xl font-bold leading-tight tracking-tight">{activeBookmark.title}</h1>
-                                        <div className="flex gap-2 shrink-0">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-primary bg-primary/10 hover:bg-primary/20"
-                                                onClick={() => askAIAboutBookmark(activeBookmark)}
-                                                title={t('dashboard.askAI')}
-                                            >
-                                                <Sparkles className="w-5 h-5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-error hover:bg-error/10"
-                                                onClick={handleDelete}
-                                                title={t('dashboard.deleteBookmark')}
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 md:gap-4 mt-3 md:mt-4 text-xs md:text-sm text-text-secondary flex-wrap">
-                                        <a href={activeBookmark.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 md:gap-2 text-primary hover:underline">
-                                            <ExternalLink className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                            <span className="truncate max-w-[200px] md:max-w-none">{new URL(activeBookmark.url).hostname}</span>
-                                        </a>
-                                        <span>•</span>
-                                        <span>{new Date(activeBookmark.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                </header>
-
-                                {/* Tags Section */}
-                                <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6 flex-wrap">
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className="text-xs uppercase tracking-wider font-semibold text-text-secondary">{t('popup.fieldTags')}</span>
-                                        <button
-                                            type="button"
-                                            className="p-1 rounded text-text-secondary hover:text-primary hover:bg-bg-subtle transition-colors disabled:opacity-50"
-                                            onClick={handleRegenerateTags}
-                                            disabled={isRegeneratingTags}
-                                            title={t('dashboard.autoTag')}
-                                        >
-                                            <RefreshCw className={`w-3 h-3 ${isRegeneratingTags ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </div>
-                                    <TagInput
-                                        value={activeBookmark.tags || []}
-                                        onChange={handleUpdateTags}
-                                        placeholder={t('dashboard.addTags')}
-                                    />
-                                </div>
-
-                                {/* AI Summary Section */}
-                                <section className="bg-bg-subtle border border-border rounded-xl p-4 md:p-6 mb-4 md:mb-6">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-lg font-semibold">{t('dashboard.summary')}</h2>
-                                        <button
-                                            type="button"
-                                            className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-bg-main transition-colors disabled:opacity-50"
-                                            onClick={handleRegenerateSummary}
-                                            disabled={isRegeneratingSummary}
-                                            title={t('dashboard.regenerate')}
-                                        >
-                                            <RefreshCw className={`w-3.5 h-3.5 ${isRegeneratingSummary ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </div>
-                                    <div className="prose max-w-none text-text-primary">
-                                        {isRegeneratingSummary ? (
-                                            <div className="flex gap-1">
-                                                <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                            </div>
-                                        ) : (
-                                            <ReactMarkdown>
-                                                {detailedBookmark?.summary || activeBookmark.summary || t('dashboard.noContent')}
-                                            </ReactMarkdown>
-                                        )}
-                                    </div>
-                                </section>
-
-                                {/* Original Content Section */}
-                                <section className="mb-4 md:mb-6">
-                                    <div className="flex justify-between items-center mb-3 md:mb-4">
-                                        <h2 className="text-base md:text-lg font-semibold">Original Content</h2>
-                                        <button
-                                            type="button"
-                                            className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-bg-subtle transition-colors disabled:opacity-50"
-                                            onClick={handleRefetchContent}
-                                            disabled={isRefetchingContent || !activeBookmark}
-                                            title="Refetch content from URL"
-                                        >
-                                            <RefreshCw className={`w-3.5 h-3.5 ${isRefetchingContent ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </div>
-                                    <div className="bg-bg-subtle border border-border rounded-xl p-4 md:p-6">
-                                        {loadingContent || isRefetchingContent ? (
-                                            <div className="flex justify-center items-center py-8 text-text-secondary">
-                                                <Loader2 className="animate-spin w-6 h-6" />
-                                            </div>
-                                        ) : isValidContent(detailedBookmark?.rawContent) ? (
-                                            <div className="prose max-w-none text-text-primary">
-                                                <ReactMarkdown
-                                                    remarkPlugins={[remarkGfm]}
-                                                    components={{
-                                                        a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />
-                                                    }}
-                                                >
-                                                    {cleanMarkdownContent(detailedBookmark?.rawContent || '', activeBookmark?.url)}
-                                                </ReactMarkdown>
-                                            </div>
-                                        ) : activeBookmark?.url ? (
-                                            <div className="flex flex-col items-center gap-4 py-8 text-center">
-                                                <p className="text-text-secondary">
-                                                    {t('dashboard.contentNotAvailable', 'Content extraction was not available for this page.')}
-                                                </p>
-                                                <a
-                                                    href={activeBookmark.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
-                                                >
-                                                    <ExternalLink className="w-4 h-4" />
-                                                    {t('dashboard.viewOriginalPage', 'View Original Page')}
-                                                </a>
-                                            </div>
-                                        ) : (
-                                            <div className="text-text-secondary italic text-center py-8">
-                                                {t('dashboard.selectBookmark', 'Select a bookmark to view content.')}
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-                            </div>
+                            <BookmarkDetailView
+                                bookmark={activeBookmark}
+                                detailedBookmark={detailedBookmark}
+                                loadingContent={loadingContent}
+                                isRegeneratingTags={isRegeneratingTags}
+                                isRegeneratingSummary={isRegeneratingSummary}
+                                isRefetchingContent={isRefetchingContent}
+                                onAskAI={askAIAboutBookmark}
+                                onDelete={handleDelete}
+                                onUpdateTags={handleUpdateTags}
+                                onRegenerateTags={handleRegenerateTags}
+                                onRegenerateSummary={handleRegenerateSummary}
+                                onRefetchContent={handleRefetchContent}
+                            />
                         ) : (
                             <div className="flex items-center justify-center h-full">
                                 <div className="flex flex-col items-center gap-6 opacity-80 max-w-[600px] w-full mx-auto">
@@ -1472,86 +1296,18 @@ export default function DashboardApp() {
                         <div className="flex flex-col h-full w-full px-2 md:px-4">
                             <div className="flex-1 overflow-y-auto py-3 md:py-4 flex flex-col gap-4 md:gap-6 scroll-smooth">
                                 {messages.map((message, index) => (
-                                    <div key={message.id} className={`flex gap-2 md:gap-3 max-w-[95%] md:max-w-[90%] animate-fade-in mb-3 md:mb-4 ${message.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                                        <div className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden ${message.role === 'user' ? 'bg-primary' : 'bg-bg-active'}`}>
-                                            {message.role === 'user' ? (
-                                                user?.user_metadata?.avatar_url ? (
-                                                    <img src={user.user_metadata.avatar_url} alt="You" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="text-white text-sm font-medium">{user?.email?.charAt(0).toUpperCase() || 'U'}</div>
-                                                )
-                                            ) : (
-                                                <div className="text-primary">
-                                                    <Sparkles className="w-5 h-5" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <div className={`px-4 py-3 md:px-5 md:py-4 rounded-2xl ${message.role === 'user' ? 'bg-primary text-white rounded-tr-sm text-[0.9375rem]' : 'bg-bg-subtle rounded-tl-sm'}`}>
-                                                {message.content ? (
-                                                    <MessageContent content={message.content} citations={message.citations} isUserMessage={message.role === 'user'} />
-                                                ) : message.role === 'assistant' ? (
-                                                    <div className="flex gap-1">
-                                                        <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                        <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                        <span className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                            {message.role === 'assistant' && (
-                                                <div className="flex gap-2 mt-2 opacity-0 hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        type="button"
-                                                        className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-subtle rounded transition-colors"
-                                                        onClick={() => handleCopyMessage(message.id, message.content)}
-                                                        title="Copy response"
-                                                    >
-                                                        {copiedMessageId === message.id ? (
-                                                            <>
-                                                                <Check className="w-3.5 h-3.5" />
-                                                                <span>Copied!</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Copy className="w-3.5 h-3.5" />
-                                                                <span>Copy</span>
-                                                            </>
-                                                        )}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-subtle rounded transition-colors disabled:opacity-50"
-                                                        onClick={() => handleRegenerateResponse(index)}
-                                                        disabled={regeneratingMessageId === message.id}
-                                                        title="Regenerate response"
-                                                    >
-                                                        <RefreshCw className={`w-3.5 h-3.5 ${regeneratingMessageId === message.id ? 'animate-spin' : ''}`} />
-                                                        <span>{regeneratingMessageId === message.id ? 'Regenerating...' : 'Regenerate'}</span>
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {/* Only show citations after streaming is complete */}
-                                            {message.citations && message.citations.length > 0 && !chatLoading && (
-                                                <div className="mt-3 pt-3 border-t border-border">
-                                                    <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">{t('chat.sources')}</span>
-                                                    <div className="flex flex-wrap gap-2 mt-2">
-                                                        {message.citations.map((citation) => (
-                                                            <a
-                                                                key={citation.bookmark.id}
-                                                                href={citation.bookmark.url}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex items-center px-2.5 py-1 text-xs bg-bg-active hover:bg-primary/10 text-text-primary hover:text-primary rounded-full transition-colors truncate max-w-[200px]"
-                                                                title={citation.bookmark.title}
-                                                            >
-                                                                <span className="truncate">{citation.bookmark.title || t('dashboard.untitled')}</span>
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <ChatMessage
+                                        key={message.id}
+                                        message={message}
+                                        index={index}
+                                        userAvatarUrl={user?.user_metadata?.avatar_url}
+                                        userEmail={user?.email}
+                                        isCopied={copiedMessageId === message.id}
+                                        isRegenerating={regeneratingMessageId === message.id}
+                                        isLoading={chatLoading}
+                                        onCopy={handleCopyMessage}
+                                        onRegenerate={handleRegenerateResponse}
+                                    />
                                 ))}
                                 {!messages.length && (
                                     <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary px-4">

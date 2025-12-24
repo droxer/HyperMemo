@@ -31,7 +31,7 @@ backend-lint: ## Run Deno lint on backend functions
 	deno lint supabase/functions
 
 backend-test: ## Run Deno unit tests for backend helpers/functions
-	deno test supabase/functions
+	deno test --allow-env --allow-read supabase/functions
 
 backend-serve: ## Serve all Edge Functions locally (with live logs)
 	$(SUPABASE) functions serve --import-map supabase/functions/deno.json

@@ -2,12 +2,15 @@ project_id = "exjeyrnttrevrbwykmuj"
 
 [functions]
   [functions.bookmarks]
-    verify_jwt = false
+    verify_jwt = true
   [functions.summaries]
-    verify_jwt = false
+    verify_jwt = true
   [functions.rag_query]
-    verify_jwt = false
+    verify_jwt = true
   [functions.notes]
-    verify_jwt = false
+    verify_jwt = true
+  [functions.tags]
+    verify_jwt = true
+  # process-bookmark needs verify_jwt = false to accept webhook calls from database trigger
   [functions.process-bookmark]
     verify_jwt = false

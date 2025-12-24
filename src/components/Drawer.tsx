@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface DrawerProps {
@@ -8,7 +8,7 @@ interface DrawerProps {
     title?: string;
 }
 
-export const Drawer: FC<DrawerProps> = ({ isOpen, onClose, children, title }) => {
+export const Drawer = memo(function Drawer({ isOpen, onClose, children, title }: DrawerProps) {
     if (!isOpen) return null;
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -45,4 +45,4 @@ export const Drawer: FC<DrawerProps> = ({ isOpen, onClose, children, title }) =>
             </div>
         </>
     );
-};
+});

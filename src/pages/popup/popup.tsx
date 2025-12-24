@@ -25,7 +25,7 @@ export default function PopupApp() {
 
     useEffect(() => {
         if (user) {
-            getUserSubscription().then(setSubscription);
+            getUserSubscription(user.id).then(setSubscription);
         }
     }, [user]);
 

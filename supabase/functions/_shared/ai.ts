@@ -139,11 +139,12 @@ export async function embedText(text: string): Promise<number[]> {
 import { summarizePrompt, tagsPrompt } from './prompts.ts';
 
 export function parseTags(raw: string): string[] {
-    return raw
+    const tags = raw
         .split(',')
         .map((tag) => tag.trim().toLowerCase())
-        .filter(Boolean)
-        .slice(0, 5);
+        .filter(Boolean);
+    // Deduplicate and limit to 5 tags
+    return [...new Set(tags)].slice(0, 5);
 }
 
 export async function ensureSummary(

@@ -44,7 +44,12 @@
         "fetchingContent": "正在获取原始内容...",
         "noContent": "无可用内容。",
         "untitled": "无标题",
-        "searchPlaceholder": "询问任何关于您书签的问题..."
+        "searchPlaceholder": "询问任何关于您书签的问题...",
+        "originalContent": "原始内容",
+        "refetchContent": "从 URL 重新获取内容",
+        "contentNotAvailable": "此页面无法提取内容。",
+        "viewOriginalPage": "查看原始页面",
+        "selectBookmarkToView": "选择一个书签以查看内容。"
     },
     "chat": {
         "placeholder": "询问关于您保存的知识... (Cmd+Enter 发送, @ 引用标签)",

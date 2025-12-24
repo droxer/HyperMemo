@@ -1,13 +1,30 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ANON_UID, REQUIRE_AUTH, SERVICE_ROLE_KEY } from './env.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 
-if (!supabaseUrl || !SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_URL and SERVICE_ROLE_KEY must be configured for Edge Functions.');
+let _supabaseAdmin: SupabaseClient | null = null;
+
+/**
+ * Get the Supabase admin client (lazy initialized).
+ * Throws if SUPABASE_URL or SERVICE_ROLE_KEY are not configured.
+ */
+function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    if (!supabaseUrl || !SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_URL and SERVICE_ROLE_KEY must be configured for Edge Functions.');
+    }
+    _supabaseAdmin = createClient(supabaseUrl, SERVICE_ROLE_KEY);
+  }
+  return _supabaseAdmin;
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, SERVICE_ROLE_KEY);
+// Export as a getter for backwards compatibility
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return Reflect.get(getSupabaseAdmin(), prop);
+  }
+});
 
 function extractBearer(req: Request): string | null {
     const header = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';

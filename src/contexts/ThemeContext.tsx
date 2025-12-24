@@ -6,7 +6,6 @@ import {
   useMemo,
   useState
 } from 'react';
-import { chromeStorage } from '@/utils/chrome';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -18,7 +17,7 @@ export type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const THEME_STORAGE_KEY = 'theme-preference';
+const THEME_STORAGE_KEY = 'hypermemo-theme-preference';
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window !== 'undefined' && window.matchMedia) {
@@ -37,15 +36,17 @@ function applyTheme(resolvedTheme: 'light' | 'dark') {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>('system');
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    // Load theme from localStorage on initialization
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        return saved;
+      }
+    }
+    return 'system';
+  });
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(getSystemTheme);
-
-  // Load saved theme on mount
-  useEffect(() => {
-    chromeStorage.get<ThemeMode>(THEME_STORAGE_KEY, 'system').then((saved) => {
-      setThemeState(saved);
-    });
-  }, []);
 
   // Update resolved theme when theme mode changes
   useEffect(() => {
@@ -71,7 +72,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = useCallback((newTheme: ThemeMode) => {
     setThemeState(newTheme);
-    chromeStorage.set(THEME_STORAGE_KEY, newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    }
   }, []);
 
   const value = useMemo(

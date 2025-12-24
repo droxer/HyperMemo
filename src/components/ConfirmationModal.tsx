@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { memo, useRef, useState } from 'react';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -11,7 +11,7 @@ interface ConfirmationModalProps {
     isDangerous?: boolean;
 }
 
-export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
+export const ConfirmationModal = memo(function ConfirmationModal({
     isOpen,
     onClose,
     onConfirm,
@@ -20,10 +20,10 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     confirmLabel = 'Confirm',
     cancelLabel = 'Cancel',
     isDangerous = false
-}) => {
+}: ConfirmationModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
 
-    const [isLoading, setIsLoading] = React.useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleConfirm = async () => {
         try {
@@ -102,4 +102,4 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             </dialog>
         </div>
     );
-};
+});

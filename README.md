@@ -76,7 +76,7 @@ Use the Supabase CLI (or GitHub Action) to push schema changes and deploy functi
 - [Subscription System](./docs/SUBSCRIPTION_SYSTEM.md): Details on Free/Pro tiers, feature gating, and management.
 
 - [Release Guide](./docs/release.md): Steps to build, package, and publish the extension.
-- [Google Auth](./docs/google-auth.md): Setup guide for Google OAuth.
+- [Authentication](./docs/authentication.md): Setup guide for Google OAuth and backend security.
 
 ```bash
 supabase login

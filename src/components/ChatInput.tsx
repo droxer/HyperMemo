@@ -1,4 +1,4 @@
-import type { FC, KeyboardEvent, ChangeEvent } from 'react';
+import { memo, type KeyboardEvent, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bookmark, Loader2, Send, X } from 'lucide-react';
 
@@ -28,7 +28,7 @@ interface ChatInputProps {
     suggestionPlacement?: 'top' | 'bottom';
 }
 
-export const ChatInput: FC<ChatInputProps> = ({
+export const ChatInput = memo(function ChatInput({
     value,
     onChange,
     onSend,
@@ -47,7 +47,7 @@ export const ChatInput: FC<ChatInputProps> = ({
     onTagHover,
     inputRef,
     suggestionPlacement = 'top'
-}) => {
+}: ChatInputProps) {
     const { t } = useTranslation();
 
     const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -143,4 +143,4 @@ export const ChatInput: FC<ChatInputProps> = ({
             </div>
         </div>
     );
-};
+});

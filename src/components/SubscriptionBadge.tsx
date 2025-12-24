@@ -1,4 +1,4 @@
-import type React from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Subscription } from '@/types/subscription';
 import { isSubscriptionActive, getSubscriptionDaysRemaining, formatSubscriptionPeriod } from '@/types/subscription';
@@ -8,7 +8,7 @@ interface SubscriptionBadgeProps {
     showDetails?: boolean;
 }
 
-export const SubscriptionBadge: React.FC<SubscriptionBadgeProps> = ({ subscription, showDetails = false }) => {
+export const SubscriptionBadge = memo(function SubscriptionBadge({ subscription, showDetails = false }: SubscriptionBadgeProps) {
     const { t } = useTranslation();
 
     if (!subscription) {
@@ -86,4 +86,4 @@ export const SubscriptionBadge: React.FC<SubscriptionBadgeProps> = ({ subscripti
             )}
         </div>
     );
-};
+});

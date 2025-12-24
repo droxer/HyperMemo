@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     LogOut,
@@ -35,7 +35,7 @@ type HeaderProps = {
     onLogout: () => void;
 };
 
-export function Header({
+export const Header = memo(function Header({
     user,
     activeTab,
     isChatHistoryOpen,
@@ -205,4 +205,4 @@ export function Header({
             </div>
         </header>
     );
-}
+});

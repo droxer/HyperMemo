@@ -38,7 +38,10 @@ export async function removeBookmark(id: string): Promise<void> {
     await chromeStorage.set(BOOKMARK_CACHE_KEY, updated);
 
     await apiClient.delete(`/bookmarks/${id}`);
-    refreshRemoteCache();
+    // Refresh cache in background, don't block deletion
+    refreshRemoteCache().catch(error => {
+        console.warn('Failed to refresh cache after bookmark deletion:', error);
+    });
 }
 
 export async function clearAllBookmarks(): Promise<void> {

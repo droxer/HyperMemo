@@ -228,7 +228,7 @@ ANON_UID=...                 # Fallback user for local dev
 
 
 - [docs/release.md](docs/release.md) - Release process for Chrome Web Store
-- [docs/google-auth.md](docs/google-auth.md) - Google OAuth setup guide
+- [docs/authentication.md](docs/authentication.md) - Authentication and security setup guide
 - [docs/admin-cli.md](docs/admin-cli.md) - Admin CLI tools documentation
 - [README.md](README.md) - Project overview and setup instructions
 

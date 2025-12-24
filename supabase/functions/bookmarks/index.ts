@@ -4,56 +4,12 @@ import { requireUserId, supabaseAdmin } from '../_shared/supabaseClient.ts';
 import { readJson, getPathParam } from '../_shared/request.ts';
 import { normalizeTags, serializeBookmark } from '../_shared/bookmarks.ts';
 import type { BookmarkPayload, BookmarkRow, BookmarkWithTags, Tag } from '../_shared/bookmarks.ts';
-// import { computeEmbedding, ensureSummary, ensureTags } from '../_shared/ai.ts';
-import { normalizeTagResult } from '../_shared/tagUtils.ts';
+import { normalizeTagResult, syncBookmarkTags } from '../_shared/tagUtils.ts';
 
 type BookmarkRecord = Omit<BookmarkRow, 'user_id' | 'created_at' | 'updated_at'> & {
     user_id: string;
     created_at?: string;
     updated_at?: string;
-};
-
-function ensureTitleUrl(payload: BookmarkPayload): { title: string; url: string } {
-    const title = (payload.title ?? '').trim();
-    const url = (payload.url ?? '').trim();
-    if (!title || !url) {
-        throw new Error('title and url are required');
-    }
-    return { title, url };
-}
-
-async function getOrCreateTag(userId: string, tagName: string): Promise<string> {
-    const { data: existingTag } = await supabaseAdmin
-        .from('tags')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('name', tagName)
-        .single();
-
-    if (existingTag) {
-        return existingTag.id;
-    }
-
-    const { data: newTag, error } = await supabaseAdmin
-        .from('tags')
-        .insert({ user_id: userId, name: tagName })
-        .select('id')
-        .single();
-
-    if (error || !newTag) {
-        throw new Error(`Failed to create tag: ${error?.message}`);
-    }
-
-    return newTag.id;
-}
-
-type BookmarkTagAssociation = {
-    tag_id: string;
-    tags?: Array<{
-        name: string;
-    }> | {
-        name: string;
-    } | null;
 };
 
 type TagAssociationResponse = {
@@ -65,45 +21,13 @@ type TagAssociationWithBookmark = {
     tags?: Tag[] | Tag | null;
 };
 
-async function syncBookmarkTags(bookmarkId: string, userId: string, tagNames: string[]): Promise<void> {
-    // Get current tag associations
-    const { data: currentAssociations } = await supabaseAdmin
-        .from('bookmark_tags')
-        .select('tag_id, tags!inner(name)')
-        .eq('bookmark_id', bookmarkId);
-
-    const currentTagNames = new Set(
-        (currentAssociations || [])
-            .map((assoc: BookmarkTagAssociation) => normalizeTagResult(assoc.tags)[0]?.name)
-            .filter((name): name is string => Boolean(name))
-    );
-    const newTagNames = new Set(tagNames);
-
-    // Find tags to add and remove
-    const tagsToAdd = tagNames.filter(name => !currentTagNames.has(name));
-    const tagsToRemove = (currentAssociations || [])
-        .filter((assoc: BookmarkTagAssociation) => {
-            const assocTags = normalizeTagResult(assoc.tags);
-            return assocTags[0] && !newTagNames.has(assocTags[0].name);
-        })
-        .map((assoc: BookmarkTagAssociation) => assoc.tag_id);
-
-    // Remove old associations
-    if (tagsToRemove.length > 0) {
-        await supabaseAdmin
-            .from('bookmark_tags')
-            .delete()
-            .eq('bookmark_id', bookmarkId)
-            .in('tag_id', tagsToRemove);
+function ensureTitleUrl(payload: BookmarkPayload): { title: string; url: string } {
+    const title = (payload.title ?? '').trim();
+    const url = (payload.url ?? '').trim();
+    if (!title || !url) {
+        throw new Error('title and url are required');
     }
-
-    // Add new associations
-    for (const tagName of tagsToAdd) {
-        const tagId = await getOrCreateTag(userId, tagName);
-        await supabaseAdmin
-            .from('bookmark_tags')
-            .insert({ bookmark_id: bookmarkId, tag_id: tagId });
-    }
+    return { title, url };
 }
 
 async function fetchBookmarkWithTags(bookmarkId: string, userId: string): Promise<BookmarkWithTags | null> {
@@ -200,7 +124,10 @@ async function deleteBookmark(userId: string, resourceId: string | null): Promis
     return jsonResponse(200, { success: true });
 }
 
-async function listBookmarks(userId: string, resourceId: string | null): Promise<Response> {
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+
+async function listBookmarks(userId: string, resourceId: string | null, req: Request): Promise<Response> {
     if (resourceId) {
         const bookmarkWithTags = await fetchBookmarkWithTags(resourceId, userId);
         if (!bookmarkWithTags) {
@@ -209,13 +136,18 @@ async function listBookmarks(userId: string, resourceId: string | null): Promise
         return jsonResponse(200, serializeBookmark(bookmarkWithTags));
     }
 
-    // Fetch all bookmarks
-    const { data: bookmarks, error } = await supabaseAdmin
+    // Parse pagination params from query string
+    const url = new URL(req.url);
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10) || 0);
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(url.searchParams.get('limit') ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT));
+
+    // Fetch bookmarks with pagination
+    const { data: bookmarks, error, count } = await supabaseAdmin
         .from('bookmarks')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(offset, offset + limit - 1);
 
     if (error || !bookmarks) {
         throw new Error(error?.message ?? 'Failed to load bookmarks');
@@ -223,10 +155,12 @@ async function listBookmarks(userId: string, resourceId: string | null): Promise
 
     // Fetch all tags for these bookmarks
     const bookmarkIds = bookmarks.map(b => b.id);
-    const { data: tagAssociations } = await supabaseAdmin
-        .from('bookmark_tags')
-        .select('bookmark_id, tags(id, user_id, name, created_at)')
-        .in('bookmark_id', bookmarkIds);
+    const { data: tagAssociations } = bookmarkIds.length > 0
+        ? await supabaseAdmin
+            .from('bookmark_tags')
+            .select('bookmark_id, tags(id, user_id, name, created_at)')
+            .in('bookmark_id', bookmarkIds)
+        : { data: [] };
 
     // Group tags by bookmark
     const tagsByBookmark = new Map<string, Tag[]>();
@@ -248,10 +182,15 @@ async function listBookmarks(userId: string, resourceId: string | null): Promise
         tags: tagsByBookmark.get(bookmark.id) || []
     }));
 
-    return jsonResponse(
-        200,
-        bookmarksWithTags.map(serializeBookmark)
-    );
+    return jsonResponse(200, {
+        data: bookmarksWithTags.map(serializeBookmark),
+        pagination: {
+            offset,
+            limit,
+            total: count ?? 0,
+            hasMore: offset + limit < (count ?? 0)
+        }
+    });
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -268,7 +207,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const resourceId = getPathParam(req, '/bookmarks');
     try {
         if (req.method === 'GET') {
-            return await listBookmarks(userId, resourceId);
+            return await listBookmarks(userId, resourceId, req);
         }
         if (req.method === 'POST') {
             const body = (await readJson<BookmarkPayload>(req)) ?? {};

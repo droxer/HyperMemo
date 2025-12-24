@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 export type TagInputProps = {
     value: string[];
@@ -7,7 +7,7 @@ export type TagInputProps = {
     id?: string;
 };
 
-export function TagInput({ value, onChange, placeholder, id }: TagInputProps) {
+export const TagInput = memo(function TagInput({ value, onChange, placeholder, id }: TagInputProps) {
     const [input, setInput] = useState('');
 
     const addTag = (tag: string) => {
@@ -65,4 +65,4 @@ export function TagInput({ value, onChange, placeholder, id }: TagInputProps) {
             </button>
         </div>
     );
-}
+});

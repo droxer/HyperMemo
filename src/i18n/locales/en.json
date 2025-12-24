@@ -44,7 +44,12 @@
         "fetchingContent": "Fetching original content...",
         "noContent": "No content available.",
         "untitled": "Untitled",
-        "searchPlaceholder": "Ask anything about your bookmarks..."
+        "searchPlaceholder": "Ask anything about your bookmarks...",
+        "originalContent": "Original Content",
+        "refetchContent": "Refetch content from URL",
+        "contentNotAvailable": "Content extraction was not available for this page.",
+        "viewOriginalPage": "View Original Page",
+        "selectBookmarkToView": "Select a bookmark to view content."
     },
     "chat": {
         "placeholder": "Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)",

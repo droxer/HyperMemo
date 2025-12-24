@@ -5,7 +5,8 @@ export type BookmarkRow = {
     url: string;
     summary: string | null;
     raw_content: string | null;
-    embedding: number[] | string | null;
+    /** Embedding vector - null until processed, number[] from JS, string from pgvector */
+    embedding: number[] | null;
     created_at: string;
     updated_at: string;
 };

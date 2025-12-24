@@ -1,6 +1,7 @@
 import { handleCors } from '../_shared/cors.ts';
 import { jsonResponse } from '../_shared/response.ts';
 import { readJson } from '../_shared/request.ts';
+import { requireUserId } from '../_shared/supabaseClient.ts';
 import { generateContent } from '../_shared/ai.ts';
 import { chatToNotePrompt } from '../_shared/prompts.ts';
 
@@ -96,6 +97,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const cors = handleCors(req);
     if (cors) {
         return cors;
+    }
+
+    // Require authentication
+    try {
+        await requireUserId(req);
+    } catch (error) {
+        return jsonResponse(401, { error: error instanceof Error ? error.message : String(error) });
     }
 
     const url = new URL(req.url);

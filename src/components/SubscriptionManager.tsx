@@ -3,6 +3,7 @@ import { useTranslation, Trans } from 'react-i18next';
 import type { Subscription } from '@/types/subscription';
 import { getUserSubscription } from '@/services/subscriptionService';
 import { isProUser, getSubscriptionDaysRemaining, formatSubscriptionPeriod } from '@/types/subscription';
+import { useAuth } from '@/contexts/AuthContext';
 
 const CheckIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success">
@@ -21,19 +22,21 @@ const XIcon = () => (
 
 export const SubscriptionManager: FC = () => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const loadSubscription = async () => {
+            if (user) {
+                setLoading(true);
+                const sub = await getUserSubscription(user.id);
+                setSubscription(sub);
+                setLoading(false);
+            }
+        };
         loadSubscription();
-    }, []);
-
-    const loadSubscription = async () => {
-        setLoading(true);
-        const sub = await getUserSubscription();
-        setSubscription(sub);
-        setLoading(false);
-    };
+    }, [user]);
 
     const isPro = isProUser(subscription);
     const daysRemaining = getSubscriptionDaysRemaining(subscription);

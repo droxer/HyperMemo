@@ -44,7 +44,12 @@
         "fetchingContent": "正在獲取原始內容...",
         "noContent": "無可用內容。",
         "untitled": "無標題",
-        "searchPlaceholder": "詢問任何關於您書籤的問題..."
+        "searchPlaceholder": "詢問任何關於您書籤的問題...",
+        "originalContent": "原始內容",
+        "refetchContent": "從 URL 重新獲取內容",
+        "contentNotAvailable": "此頁面無法提取內容。",
+        "viewOriginalPage": "查看原始頁面",
+        "selectBookmarkToView": "選擇一個書籤以查看內容。"
     },
     "chat": {
         "placeholder": "詢問關於您保存的知識... (Cmd+Enter 發送, @ 引用標籤)",
