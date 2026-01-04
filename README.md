@@ -1,8 +1,12 @@
 <div align="center">
-  <img src="public/icons/icon-128.png" alt="HyperMemo Logo" width="128" height="128" />
+  <img src="public/icons/icon.svg" alt="HyperMemo Logo" width="128" height="128" />
   <h1>HyperMemo</h1>
   <p>
     <b>Your Second Brain for the Web</b>
+  </p>
+  <p>
+    <img alt="Teal" src="https://img.shields.io/badge/Primary-0d9488?style=flat-square" />
+    <img alt="Amber" src="https://img.shields.io/badge/Accent-f59e0b?style=flat-square" />
   </p>
   <p>
     A Chrome extension that helps you save, organize, and explore your bookmarks.<br/>

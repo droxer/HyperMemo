@@ -2,7 +2,8 @@ import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, Copy, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, Copy, RefreshCw } from 'lucide-react';
+import { BrainIconSimple } from '@/components/icons/BrainIcon';
 import type { ChatMessage as ChatMessageType, Citation } from '@/types/bookmark';
 import type { RagMatch } from '@/services/ragService';
 
@@ -25,10 +26,10 @@ function transformTextWithCitations(text: string, citations?: RagMatch[]): React
                         href={citation.bookmark.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="relative inline-flex items-center px-1 mx-0.5 text-xs font-medium text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors group"
+                        className="relative inline-flex items-center px-1.5 py-0.5 mx-0.5 text-[10px] font-semibold text-accent bg-accent/15 rounded-md hover:bg-accent/25 transition-all group border border-accent/20 hover:border-accent/40 shadow-sm"
                     >
-                        [{match[1]}]
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs bg-text-primary text-bg-main rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">{citation.bookmark.title}</span>
+                        <span className="mr-0.5">📑</span>{match[1]}
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 text-xs bg-text-primary text-bg-main rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-lg max-w-[200px] truncate">{citation.bookmark.title}</span>
                     </a>
                 );
             }
@@ -153,7 +154,7 @@ export const ChatMessage = memo(function ChatMessage({
                     )
                 ) : (
                     <div className="text-primary">
-                        <Sparkles className="w-5 h-5" />
+                        <BrainIconSimple size={20} />
                     </div>
                 )}
             </div>
@@ -203,19 +204,20 @@ export const ChatMessage = memo(function ChatMessage({
                 )}
                 {/* Only show citations after streaming is complete */}
                 {message.citations && message.citations.length > 0 && !isLoading && (
-                    <div className="mt-3 pt-3 border-t border-border">
-                        <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">{t('chat.sources')}</span>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {message.citations.map((citation) => (
+                    <div className="mt-3 pt-3 border-t border-border/50">
+                        <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">{t('chat.sources')}</span>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {message.citations.map((citation, idx) => (
                                 <a
                                     key={citation.bookmark.id}
                                     href={citation.bookmark.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center px-2.5 py-1 text-xs bg-bg-active hover:bg-primary/10 text-text-primary hover:text-primary rounded-full transition-colors truncate max-w-[200px]"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-bg-main hover:bg-accent/10 text-text-primary hover:text-accent rounded-lg transition-all border border-border hover:border-accent/30 shadow-sm group"
                                     title={citation.bookmark.title}
                                 >
-                                    <span className="truncate">{citation.bookmark.title || t('dashboard.untitled')}</span>
+                                    <span className="text-accent font-semibold text-[10px]">{idx + 1}</span>
+                                    <span className="truncate max-w-[160px]">{citation.bookmark.title || t('dashboard.untitled')}</span>
                                 </a>
                             ))}
                         </div>

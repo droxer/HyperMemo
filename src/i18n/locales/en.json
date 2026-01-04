@@ -2,6 +2,7 @@
     "app": {
         "name": "HyperMemo",
         "slogan": "Your Second Brain for the Web",
+        "tagline": "Your second brain for the web",
         "loading": "Loading workspace...",
         "signInTitle": "Sign in to HyperMemo",
         "signInDesc": "You need to be signed in to view your bookmarks.",
@@ -29,7 +30,7 @@
         "comingSoon": "Coming Soon"
     },
     "dashboard": {
-        "selectBookmark": "Select a bookmark from the sidebar to view details",
+        "selectBookmark": "Select a bookmark to view",
         "selectBookmarkSummary": "Select a bookmark from the sidebar to view its summary.",
         "deleteBookmark": "Delete bookmark",
         "askAI": "Ask AI about this",
@@ -45,21 +46,24 @@
         "noContent": "No content available.",
         "untitled": "Untitled",
         "searchPlaceholder": "Ask anything about your bookmarks...",
-        "originalContent": "Original Content",
+        "originalContent": "Content",
         "refetchContent": "Refetch content from URL",
         "contentNotAvailable": "Content extraction was not available for this page.",
         "viewOriginalPage": "View Original Page",
-        "selectBookmarkToView": "Select a bookmark to view content."
+        "selectBookmarkToView": "Select a bookmark to view content.",
+        "useTagHint": "Use @tag to filter"
     },
     "chat": {
         "placeholder": "Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)",
         "send": "Send",
         "thinking": "Thinking...",
-        "sources": "Sources:",
+        "sources": "Sources",
         "you": "You",
         "ai": "AI",
         "welcomeTitle": "Welcome to HyperMemo Chat",
-        "welcomeSubtitle": "Ask me anything about your saved bookmarks."
+        "welcomeSubtitle": "Ask me anything about your saved bookmarks.",
+        "tipAsk": "Ask about your bookmarks",
+        "tipSearch": "Search your knowledge"
     },
     "popup": {
         "title": "Save Bookmark",
@@ -84,7 +88,8 @@
             "saved": "Saved!",
             "failed": "Failed to save bookmark"
         },
-        "aiGenerationNote": "AI will generate tags and summary automatically."
+        "aiGenerationNote": "AI will generate tags and summary automatically.",
+        "aiProcessing": "AI is processing..."
     },
     "subscription": {
         "title": "Subscription & Billing",

@@ -6,9 +6,9 @@ import {
     ExternalLink,
     Loader2,
     RefreshCw,
-    Sparkles,
     Trash2,
 } from 'lucide-react';
+import { BrainIcon } from '@/components/icons/BrainIcon';
 import { TagInput } from '@/components/TagInput';
 import { Button } from '@/components/ui/button';
 import type { Bookmark } from '@/types/bookmark';
@@ -58,7 +58,7 @@ export const BookmarkDetailView = memo(function BookmarkDetailView({
                             onClick={() => onAskAI(bookmark)}
                             title={t('dashboard.askAI')}
                         >
-                            <Sparkles className="w-5 h-5" />
+                            <BrainIcon size={20} />
                         </Button>
                         <Button
                             variant="ghost"
@@ -132,10 +132,10 @@ export const BookmarkDetailView = memo(function BookmarkDetailView({
                 </div>
             </section>
 
-            {/* Original Content Section */}
-            <section className="mb-4 md:mb-6">
-                <div className="flex justify-between items-center mb-3 md:mb-4">
-                    <h2 className="text-base md:text-lg font-semibold">{t('dashboard.originalContent')}</h2>
+            {/* Content Section */}
+            <section className="bg-bg-subtle border border-border rounded-xl p-4 md:p-6 mb-4 md:mb-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold">{t('dashboard.originalContent')}</h2>
                     <button
                         type="button"
                         className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-bg-subtle transition-colors disabled:opacity-50"
@@ -146,43 +146,41 @@ export const BookmarkDetailView = memo(function BookmarkDetailView({
                         <RefreshCw className={`w-3.5 h-3.5 ${isRefetchingContent ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
-                <div className="bg-bg-subtle border border-border rounded-xl p-4 md:p-6">
-                    {loadingContent || isRefetchingContent ? (
-                        <div className="flex justify-center items-center py-8 text-text-secondary">
-                            <Loader2 className="animate-spin w-6 h-6" />
-                        </div>
-                    ) : isValidContent(detailedBookmark?.rawContent) ? (
-                        <div className="prose max-w-none text-text-primary">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />
-                                }}
-                            >
-                                {cleanMarkdownContent(detailedBookmark?.rawContent || '', bookmark.url)}
-                            </ReactMarkdown>
-                        </div>
-                    ) : bookmark.url ? (
-                        <div className="flex flex-col items-center gap-4 py-8 text-center">
-                            <p className="text-text-secondary">
-                                {t('dashboard.contentNotAvailable')}
-                            </p>
-                            <a
-                                href={bookmark.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
-                            >
-                                <ExternalLink className="w-4 h-4" />
-                                {t('dashboard.viewOriginalPage')}
-                            </a>
-                        </div>
-                    ) : (
-                        <div className="text-text-secondary italic text-center py-8">
-                            {t('dashboard.selectBookmarkToView')}
-                        </div>
-                    )}
-                </div>
+                {loadingContent || isRefetchingContent ? (
+                    <div className="flex justify-center items-center py-8 text-text-secondary">
+                        <Loader2 className="animate-spin w-6 h-6" />
+                    </div>
+                ) : isValidContent(detailedBookmark?.rawContent) ? (
+                    <div className="prose max-w-none text-text-primary">
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />
+                            }}
+                        >
+                            {cleanMarkdownContent(detailedBookmark?.rawContent || '', bookmark.url)}
+                        </ReactMarkdown>
+                    </div>
+                ) : bookmark.url ? (
+                    <div className="flex flex-col items-center gap-4 py-8 text-center">
+                        <p className="text-text-secondary">
+                            {t('dashboard.contentNotAvailable')}
+                        </p>
+                        <a
+                            href={bookmark.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            {t('dashboard.viewOriginalPage')}
+                        </a>
+                    </div>
+                ) : (
+                    <div className="text-text-secondary italic text-center py-8">
+                        {t('dashboard.selectBookmarkToView')}
+                    </div>
+                )}
             </section>
         </div>
     );

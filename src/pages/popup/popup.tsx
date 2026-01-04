@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Check, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarksContext } from '@/contexts/BookmarkContext';
+import { BrainIcon } from '@/components/icons/BrainIcon';
 import type { PageContextPayload } from '@/types/messages';
 import { requestPageContext } from '@/utils/chrome';
 import { getUserSubscription } from '@/services/subscriptionService';
@@ -22,6 +24,7 @@ export default function PopupApp() {
     const [saving, setSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [subscription, setSubscription] = useState<Subscription | null>(null);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -100,11 +103,12 @@ export default function PopupApp() {
                 rawContent: pageContext?.content
             });
             setStatusMessage(t('popup.status.saved'));
+            setSaveSuccess(true);
 
-            // Close popup after successful save
+            // Close popup after successful save with animation
             setTimeout(() => {
                 window.close();
-            }, 500);
+            }, 1200);
         } catch (error) {
             console.error(error);
             setStatusMessage(t('popup.status.failed'));
@@ -114,9 +118,30 @@ export default function PopupApp() {
     };
 
     return (
-        <div className="w-[360px] p-4 bg-bg-main">
+        <div className="w-[360px] p-4 bg-bg-main relative overflow-hidden">
+            {/* Success overlay animation */}
+            {saveSuccess && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-bg-main/95 animate-fade-in">
+                    <div className="flex flex-col items-center gap-4 animate-scale-pop">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-success to-primary flex items-center justify-center shadow-lg">
+                            <Check className="w-8 h-8 text-white" strokeWidth={3} />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-lg font-semibold text-text-primary font-display">{t('popup.status.saved')}</h3>
+                            <p className="text-sm text-text-secondary flex items-center justify-center gap-1.5 mt-1">
+                                <Sparkles className="w-3.5 h-3.5 text-accent" />
+                                {t('popup.aiProcessing', 'AI is processing...')}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <header className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-                <h1 className="text-lg font-semibold text-text-primary">{t('popup.title')}</h1>
+                <div className="flex items-center gap-2">
+                    <BrainIcon size={20} className="text-primary" />
+                    <h1 className="text-lg font-semibold text-text-primary font-display">{t('popup.title')}</h1>
+                </div>
                 <div className="flex items-center gap-2">
                     <SubscriptionBadge subscription={subscription} />
                     {loading ? (
@@ -150,7 +175,7 @@ export default function PopupApp() {
                         value={form.title}
                         onChange={(event) => setForm({ ...form, title: event.target.value })}
                         placeholder={t('popup.placeholderTitle')}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-main text-text-primary placeholder:text-text-secondary outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-border bg-bg-subtle text-text-primary placeholder:text-text-secondary outline-none focus:ring-2 focus:ring-primary focus:border-transparent focus:bg-bg-main transition-all"
                     />
                 </div>
 
@@ -162,31 +187,35 @@ export default function PopupApp() {
                         value={form.url}
                         onChange={(event) => setForm({ ...form, url: event.target.value })}
                         placeholder={t('popup.placeholderUrl')}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-bg-main text-text-primary placeholder:text-text-secondary outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-border bg-bg-subtle text-text-primary placeholder:text-text-secondary outline-none focus:ring-2 focus:ring-primary focus:border-transparent focus:bg-bg-main transition-all"
                     />
                 </div>
 
-                <div className="text-xs text-text-secondary italic">
-                    {t('popup.aiGenerationNote', 'AI will generate tags and summary automatically.')}
+                <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
+                    <Sparkles className="w-4 h-4 text-accent shrink-0" />
+                    <span className="text-xs text-accent">
+                        {t('popup.aiGenerationNote', 'AI will generate tags and summary automatically.')}
+                    </span>
                 </div>
 
-                {statusMessage && (
-                    <div className="px-3 py-2 text-sm rounded-lg bg-success-bg border border-success-border text-success">
+                {statusMessage && !saveSuccess && (
+                    <div className="px-3 py-2 text-sm rounded-lg bg-success-bg border border-success-border text-success flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-success border-t-transparent rounded-full animate-spin" />
                         {statusMessage}
                     </div>
                 )}
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-1">
                     <button
                         type="submit"
-                        className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                         disabled={!user || saving}
                     >
                         {!user ? t('popup.signInToSave') : saving ? t('popup.saving') : t('popup.save')}
                     </button>
                     <button
                         type="button"
-                        className="px-4 py-2.5 text-sm font-medium rounded-lg border border-border text-text-primary hover:bg-bg-subtle transition-colors"
+                        className="px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-primary hover:bg-bg-subtle transition-colors"
                         onClick={openWorkspace}
                     >
                         {t('app.openWorkspace')}

@@ -1,0 +1,22 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d9488"/>
+      <stop offset="100%" style="stop-color:#0f766e"/>
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGradient)"/>
+  <g transform="translate(24, 20) scale(3.3)">
+    <path d="M12 4C8.5 4 6 6.5 6 9.5C6 11 6.5 12.3 7.3 13.3C6.5 14.2 6 15.5 6 17C6 19.5 8 21.5 10.5 21.5C11.5 21.5 12.5 21.2 13.3 20.6C14 21.2 15 21.5 16 21.5C18.2 21.5 20 19.7 20 17.5C20 16 19.3 14.7 18.2 13.8C18.7 12.9 19 11.8 19 10.5C19 7.5 16.5 5 13.5 5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M12 4C12 4 14 5 14 8C14 11 12 13 12 13" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="9" cy="9" r="1.8" fill="url(#accentGradient)"/>
+    <circle cx="15" cy="8" r="1.8" fill="url(#accentGradient)"/>
+    <circle cx="11" cy="15" r="1.8" fill="url(#accentGradient)"/>
+    <circle cx="16" cy="14" r="1.8" fill="url(#accentGradient)"/>
+    <path d="M9 9L11 15M15 8L16 14M9 9L15 8M11 15L16 14" stroke="white" stroke-width="0.6" stroke-linecap="round" stroke-dasharray="1.5 1.5" opacity="0.5"/>
+  </g>
+</svg>
