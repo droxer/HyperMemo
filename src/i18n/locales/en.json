@@ -54,7 +54,7 @@
         "useTagHint": "Use @tag to filter"
     },
     "chat": {
-        "placeholder": "Ask about your saved knowledge... (Cmd+Enter to send, @ for tags)",
+        "placeholder": "Ask about your saved knowledge... (Cmd+Enter to send, @ for tags/bookmarks)",
         "send": "Send",
         "thinking": "Thinking...",
         "sources": "Sources",
@@ -63,7 +63,8 @@
         "welcomeTitle": "Welcome to HyperMemo Chat",
         "welcomeSubtitle": "Ask me anything about your saved bookmarks.",
         "tipAsk": "Ask about your bookmarks",
-        "tipSearch": "Search your knowledge"
+        "tipSearch": "Search your knowledge",
+        "noSuggestions": "No matches found"
     },
     "popup": {
         "title": "Save Bookmark",

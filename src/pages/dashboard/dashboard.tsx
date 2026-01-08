@@ -25,7 +25,7 @@ import { generateSummary, extractSmartTags } from '@/services/mlService';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { Header } from '@/components/Header';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
-import { ChatInput, type ChatContextBookmark } from '@/components/ChatInput';
+import { ChatInput, type ChatContextBookmark, type ChatSuggestion } from '@/components/ChatInput';
 import { Drawer } from '@/components/Drawer';
 import { BookmarkDetailView } from '@/components/BookmarkDetailView';
 import { ChatMessage } from '@/components/ChatMessage';
@@ -82,8 +82,8 @@ export default function DashboardApp() {
     // Chat Tag State
     const [chatTags, setChatTags] = useState<string[]>([]);
     const [chatBookmarks, setChatBookmarks] = useState<ChatContextBookmark[]>([]);
-    const [showTagSuggestions, setShowTagSuggestions] = useState(false);
-    const [tagSearch, setTagSearch] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [suggestionSearch, setSuggestionSearch] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
     const bookmarkSignatureRef = useRef<string | null>(null);
@@ -205,10 +205,26 @@ export default function DashboardApp() {
 
     const tagNames = useMemo(() => availableTags.map(tag => tag.name), [availableTags]);
 
-    const filteredTags = useMemo(() => {
-        if (!tagSearch) return tagNames;
-        return tagNames.filter(t => t.toLowerCase().includes(tagSearch.toLowerCase()));
-    }, [tagNames, tagSearch]);
+    const filteredSuggestions = useMemo(() => {
+        const query = suggestionSearch.toLowerCase();
+
+        const selectedBookmarkIds = new Set(chatBookmarks.map(b => b.id));
+        const selectedTags = new Set(chatTags);
+
+        const tags: ChatSuggestion[] = tagNames
+            .filter(t => !selectedTags.has(t) && t.toLowerCase().includes(query))
+            .map(t => ({ id: t, type: 'tag', label: t }));
+
+        const bookmarkSuggestions: ChatSuggestion[] = bookmarks
+            .filter(b => !selectedBookmarkIds.has(b.id) && (
+                (b.title || '').toLowerCase().includes(query) ||
+                (b.url || '').toLowerCase().includes(query)
+            ))
+            .slice(0, 10)
+            .map(b => ({ id: b.id, type: 'bookmark', label: b.title || 'Untitled' }));
+
+        return [...tags, ...bookmarkSuggestions];
+    }, [tagNames, suggestionSearch, bookmarks, chatBookmarks, chatTags]);
 
     // Load chat sessions and notes in parallel on mount
     useEffect(() => {
@@ -561,28 +577,32 @@ export default function DashboardApp() {
     const handleChatInputChange = useCallback((value: string) => {
         setQuestion(value);
 
-        const lastWord = value.split(' ').pop();
-        if (lastWord?.startsWith('@')) {
-            setShowTagSuggestions(true);
-            setTagSearch(lastWord.slice(1));
+        const lastWord = value.split(/\s/).pop() || '';
+        if (lastWord.startsWith('@')) {
+            setShowSuggestions(true);
+            setSuggestionSearch(lastWord.slice(1));
             setSelectedIndex(0);
         } else {
-            setShowTagSuggestions(false);
+            setShowSuggestions(false);
         }
     }, []);
 
-    const handleTagSelect = useCallback((tag: string) => {
-        setChatTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
+    const handleSuggestionSelect = useCallback((suggestion: ChatSuggestion) => {
+        if (suggestion.type === 'tag') {
+            setChatTags(prev => prev.includes(suggestion.label) ? prev : [...prev, suggestion.label]);
+        } else {
+            setChatBookmarks(prev => prev.find(b => b.id === suggestion.id) ? prev : [...prev, { id: suggestion.id, title: suggestion.label }]);
+        }
 
         // Remove the @search part from the question
         setQuestion(prev => {
-            const words = prev.split(' ');
-            words.pop(); // Remove the last word (which is the @tag)
+            const words = prev.split(/\s/);
+            words.pop(); // Remove the last word (which is the @query)
             return `${words.join(' ')} `; // Add space for next typing
         });
 
-        setShowTagSuggestions(false);
-        setTagSearch('');
+        setShowSuggestions(false);
+        setSuggestionSearch('');
         setSelectedIndex(0);
     }, []);
 
@@ -591,25 +611,25 @@ export default function DashboardApp() {
     }, []);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>, onSubmit?: () => void) => {
-        if (showTagSuggestions && filteredTags.length > 0) {
+        if (showSuggestions && filteredSuggestions.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                setSelectedIndex((prev) => (prev + 1) % filteredTags.length);
+                setSelectedIndex((prev) => (prev + 1) % filteredSuggestions.length);
                 return;
             }
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                setSelectedIndex((prev) => (prev - 1 + filteredTags.length) % filteredTags.length);
+                setSelectedIndex((prev) => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length);
                 return;
             }
             if (e.key === 'Enter') {
                 e.preventDefault();
-                handleTagSelect(filteredTags[selectedIndex]);
+                handleSuggestionSelect(filteredSuggestions[selectedIndex]);
                 return;
             }
             if (e.key === 'Escape') {
                 e.preventDefault();
-                setShowTagSuggestions(false);
+                setShowSuggestions(false);
                 return;
             }
         }
@@ -622,7 +642,7 @@ export default function DashboardApp() {
                 askAssistant();
             }
         }
-    }, [showTagSuggestions, filteredTags, selectedIndex, handleTagSelect]);
+    }, [showSuggestions, filteredSuggestions, selectedIndex, handleSuggestionSelect]);
 
     const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(true);
 
@@ -1138,8 +1158,8 @@ export default function DashboardApp() {
                                     type="button"
                                     onClick={() => setSelectedTag(null)}
                                     className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all ${!selectedTag
-                                            ? 'bg-primary text-white shadow-sm'
-                                            : 'bg-bg-main text-text-secondary hover:text-text-primary hover:bg-bg-active border border-border'
+                                        ? 'bg-primary text-white shadow-sm'
+                                        : 'bg-bg-main text-text-secondary hover:text-text-primary hover:bg-bg-active border border-border'
                                         }`}
                                 >
                                     {t('sidebar.allTags')}
@@ -1150,8 +1170,8 @@ export default function DashboardApp() {
                                         key={tag.id}
                                         onClick={() => setSelectedTag(tag.name)}
                                         className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-all flex items-center gap-1 ${selectedTag === tag.name
-                                                ? 'bg-primary text-white shadow-sm'
-                                                : 'bg-bg-main text-text-secondary hover:text-text-primary hover:bg-bg-active border border-border'
+                                            ? 'bg-primary text-white shadow-sm'
+                                            : 'bg-bg-main text-text-secondary hover:text-text-primary hover:bg-bg-active border border-border'
                                             }`}
                                     >
                                         <span>{tag.name}</span>
@@ -1313,11 +1333,11 @@ export default function DashboardApp() {
                                             onRemoveTag={handleRemoveChatTag}
                                             bookmarks={chatBookmarks}
                                             onRemoveBookmark={(id) => setChatBookmarks(chatBookmarks.filter(b => b.id !== id))}
-                                            showTagSuggestions={showTagSuggestions}
-                                            filteredTags={filteredTags}
-                                            selectedTagIndex={selectedIndex}
-                                            onTagSelect={handleTagSelect}
-                                            onTagHover={setSelectedIndex}
+                                            showSuggestions={showSuggestions}
+                                            suggestions={filteredSuggestions}
+                                            selectedIndex={selectedIndex}
+                                            onSuggestionSelect={handleSuggestionSelect}
+                                            onSuggestionHover={setSelectedIndex}
                                             suggestionPlacement="bottom"
                                         />
                                     </div>
@@ -1330,7 +1350,7 @@ export default function DashboardApp() {
                                         </div>
                                         <div className="flex items-center gap-2 px-3 py-1.5 bg-bg-subtle rounded-full text-text-secondary">
                                             <span className="text-accent">@</span>
-                                            <span>{t('dashboard.useTagHint', 'Use @tag to filter')}</span>
+                                            <span>{t('dashboard.useTagHint', 'Use @tags/bookmarks to filter')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1400,11 +1420,11 @@ export default function DashboardApp() {
                                 onRemoveTag={handleRemoveChatTag}
                                 bookmarks={chatBookmarks}
                                 onRemoveBookmark={(id) => setChatBookmarks(chatBookmarks.filter(b => b.id !== id))}
-                                showTagSuggestions={showTagSuggestions}
-                                filteredTags={filteredTags}
-                                selectedTagIndex={selectedIndex}
-                                onTagSelect={handleTagSelect}
-                                onTagHover={setSelectedIndex}
+                                showSuggestions={showSuggestions}
+                                suggestions={filteredSuggestions}
+                                selectedIndex={selectedIndex}
+                                onSuggestionSelect={handleSuggestionSelect}
+                                onSuggestionHover={setSelectedIndex}
                                 inputRef={chatInputRef}
                                 suggestionPlacement="top"
                             />

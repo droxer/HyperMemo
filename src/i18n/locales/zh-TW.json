@@ -52,14 +52,15 @@
         "selectBookmarkToView": "選擇一個書籤以查看內容。"
     },
     "chat": {
-        "placeholder": "詢問關於您保存的知識... (Cmd+Enter 發送, @ 引用標籤)",
+        "placeholder": "詢問關於您保存的知識... (Cmd+Enter 發送, @ 引用標籤/書籤)",
         "send": "發送",
         "thinking": "思考中...",
         "sources": "來源:",
         "you": "你",
         "ai": "AI",
         "welcomeTitle": "歡迎使用 HyperMemo 對話",
-        "welcomeSubtitle": "詢問我任何關於您保存書籤的問題。"
+        "welcomeSubtitle": "詢問我任何關於您保存書籤的問題。",
+        "noSuggestions": "未找到匹配項"
     },
     "popup": {
         "title": "保存書籤",

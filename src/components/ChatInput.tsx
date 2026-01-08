@@ -1,10 +1,16 @@
 import { memo, type KeyboardEvent, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bookmark, Loader2, Send, X } from 'lucide-react';
+import { Bookmark, Tag, Loader2, Send, X } from 'lucide-react';
 
 export interface ChatContextBookmark {
     id: string;
     title: string;
+}
+
+export interface ChatSuggestion {
+    id: string;
+    type: 'tag' | 'bookmark';
+    label: string;
 }
 
 interface ChatInputProps {
@@ -19,11 +25,11 @@ interface ChatInputProps {
     onRemoveTag?: (tag: string) => void;
     bookmarks?: ChatContextBookmark[];
     onRemoveBookmark?: (bookmarkId: string) => void;
-    showTagSuggestions?: boolean;
-    filteredTags?: string[];
-    selectedTagIndex?: number;
-    onTagSelect?: (tag: string) => void;
-    onTagHover?: (index: number) => void;
+    showSuggestions?: boolean;
+    suggestions?: ChatSuggestion[];
+    selectedIndex?: number;
+    onSuggestionSelect?: (suggestion: ChatSuggestion) => void;
+    onSuggestionHover?: (index: number) => void;
     inputRef?: React.RefObject<HTMLTextAreaElement>;
     suggestionPlacement?: 'top' | 'bottom';
 }
@@ -40,11 +46,11 @@ export const ChatInput = memo(function ChatInput({
     onRemoveTag,
     bookmarks = [],
     onRemoveBookmark,
-    showTagSuggestions = false,
-    filteredTags = [],
-    selectedTagIndex = -1,
-    onTagSelect,
-    onTagHover,
+    showSuggestions = false,
+    suggestions = [],
+    selectedIndex = -1,
+    onSuggestionSelect,
+    onSuggestionHover,
     inputRef,
     suggestionPlacement = 'top'
 }: ChatInputProps) {
@@ -95,23 +101,30 @@ export const ChatInput = memo(function ChatInput({
                 </div>
             )}
 
-            {showTagSuggestions && (
-                <div className={`absolute left-0 right-0 bg-bg-main border border-border rounded-lg shadow-md z-50 max-h-[200px] overflow-y-auto ${suggestionPlacement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
-                    {filteredTags.length > 0 ? (
-                        filteredTags.map((tag, index) => (
+            {showSuggestions && (
+                <div className={`absolute left-0 right-0 bg-bg-main border border-border rounded-lg shadow-md z-50 max-h-[250px] overflow-y-auto ${suggestionPlacement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+                    {suggestions.length > 0 ? (
+                        suggestions.map((suggestion, index) => (
                             <button
                                 type="button"
-                                key={tag}
-                                onClick={() => onTagSelect?.(tag)}
-                                className={`w-full px-3 py-3 text-left text-sm transition-colors ${index === selectedTagIndex ? 'bg-primary/10 text-primary' : 'text-text-primary hover:bg-bg-subtle'}`}
-                                onMouseEnter={() => onTagHover?.(index)}
+                                key={`${suggestion.type}-${suggestion.id}`}
+                                onClick={() => onSuggestionSelect?.(suggestion)}
+                                className={`w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2 ${index === selectedIndex ? 'bg-primary/10 text-primary' : 'text-text-primary hover:bg-bg-subtle'}`}
+                                onMouseEnter={() => onSuggestionHover?.(index)}
                             >
-                                {tag}
+                                {suggestion.type === 'tag' ? (
+                                    <Tag className="w-3.5 h-3.5 opacity-60" />
+                                ) : (
+                                    <Bookmark className="w-3.5 h-3.5 opacity-60" />
+                                )}
+                                <span className="truncate flex-1">{suggestion.label}</span>
+                                {suggestion.type === 'tag' && <span className="text-[10px] opacity-40 uppercase font-bold tracking-wider">Tag</span>}
+                                {suggestion.type === 'bookmark' && <span className="text-[10px] opacity-40 uppercase font-bold tracking-wider">Link</span>}
                             </button>
                         ))
                     ) : (
                         <div className="px-3 py-2 text-sm text-text-secondary">
-                            No tags found
+                            {t('chat.noSuggestions', 'No matches found')}
                         </div>
                     )}
                 </div>

@@ -52,14 +52,15 @@
         "selectBookmarkToView": "选择一个书签以查看内容。"
     },
     "chat": {
-        "placeholder": "询问关于您保存的知识... (Cmd+Enter 发送, @ 引用标签)",
+        "placeholder": "询问关于您保存的知识... (Cmd+Enter 发送, @ 引用标签/书签)",
         "send": "发送",
         "thinking": "思考中...",
         "sources": "来源:",
         "you": "你",
         "ai": "AI",
         "welcomeTitle": "欢迎使用 HyperMemo 对话",
-        "welcomeSubtitle": "询问我任何关于您保存书签的问题。"
+        "welcomeSubtitle": "询问我任何关于您保存书签的问题。",
+        "noSuggestions": "未找到匹配项"
     },
     "popup": {
         "title": "保存书签",

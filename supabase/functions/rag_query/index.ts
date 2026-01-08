@@ -120,7 +120,7 @@ async function getBookmarksByIds(
             raw_content,
             created_at,
             updated_at,
-            bookmark_tags!inner(tags(name))
+            bookmark_tags(tags(name))
         `)
         .eq('user_id', userId)
         .in('id', bookmarkIds);
